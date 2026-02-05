@@ -1,0 +1,62 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { ENV } from './config/env';
+import { errorHandler, notFound } from './middleware/errorHandler';
+
+// Routes
+import authRoutes from './routes/auth.routes';
+import walletRoutes from './routes/wallet.routes';
+import clinicRoutes from './routes/clinic.routes';
+import notificationRoutes from './routes/notification.routes';
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: '*', // In production, restrict to app domain
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Rate limiting
+app.use(rateLimit({
+  windowMs: ENV.rateLimit.windowMs,
+  max: ENV.rateLimit.max,
+  message: { error: 'Too many requests, please try again later' },
+}));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'PrescoPad API',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/clinic', clinicRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+// Error handling
+app.use(notFound);
+app.use(errorHandler);
+
+// Start server
+app.listen(ENV.port, () => {
+  console.log(`PrescoPad API running on port ${ENV.port}`);
+  console.log(`Environment: ${ENV.nodeEnv}`);
+  console.log(`Health check: http://localhost:${ENV.port}/api/health`);
+});
+
+export default app;

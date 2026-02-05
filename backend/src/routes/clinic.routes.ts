@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import * as ClinicController from '../controllers/clinic.controller';
+import { authenticate } from '../middleware/auth';
+
+const router = Router();
+
+router.use(authenticate);
+
+// Get clinic details
+router.get('/', ClinicController.getClinic);
+
+// Create or update clinic (doctor only)
+router.put('/', ClinicController.createOrUpdateClinic);
+
+export default router;
