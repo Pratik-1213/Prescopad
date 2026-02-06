@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,11 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import api from '../../services/api';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
@@ -37,6 +39,38 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   const cloudSync = useCloudSyncStore((s) => s.sync);
 
   const [refreshing, setRefreshing] = useState(false);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Send heartbeat every 60 seconds while app is active
+  useEffect(() => {
+    const sendHeartbeat = () => {
+      api.post('/auth/heartbeat').catch(() => { /* silent */ });
+    };
+
+    // Send immediately on mount
+    sendHeartbeat();
+    heartbeatRef.current = setInterval(sendHeartbeat, 60_000);
+
+    // Pause heartbeat when app goes to background
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sendHeartbeat();
+        if (!heartbeatRef.current) {
+          heartbeatRef.current = setInterval(sendHeartbeat, 60_000);
+        }
+      } else {
+        if (heartbeatRef.current) {
+          clearInterval(heartbeatRef.current);
+          heartbeatRef.current = null;
+        }
+      }
+    });
+
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      subscription.remove();
+    };
+  }, []);
 
   const loadData = useCallback(async () => {
     await Promise.all([

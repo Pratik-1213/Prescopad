@@ -111,6 +111,38 @@ export async function joinClinic(req: AuthRequest, res: Response, next: NextFunc
   }
 }
 
+export async function getDoctorStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.clinicId) {
+      throw new AppError('You must be part of a clinic', 400);
+    }
+
+    const doctor = await queryOne<{ name: string; last_active_at: string | null }>(
+      `SELECT name, last_active_at FROM users WHERE clinic_id = $1 AND role = 'doctor' LIMIT 1`,
+      [req.clinicId]
+    );
+
+    if (!doctor) {
+      res.json({ success: true, online: false, doctorName: null, lastActiveAt: null });
+      return;
+    }
+
+    // Doctor is "online" if active within the last 2 minutes
+    const isOnline = doctor.last_active_at
+      ? (Date.now() - new Date(doctor.last_active_at).getTime()) < 2 * 60 * 1000
+      : false;
+
+    res.json({
+      success: true,
+      online: isOnline,
+      doctorName: doctor.name,
+      lastActiveAt: doctor.last_active_at,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createOrUpdateClinic(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (req.userRole !== 'doctor') {

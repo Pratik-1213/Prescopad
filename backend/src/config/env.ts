@@ -27,6 +27,10 @@ export const ENV = {
     demoCode: process.env.OTP_DEMO_CODE || '123456',
   },
 
+  fast2sms: {
+    apiKey: process.env.FAST2SMS_API_KEY || '',
+  },
+
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',

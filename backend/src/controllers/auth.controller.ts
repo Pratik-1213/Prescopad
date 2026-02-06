@@ -203,6 +203,18 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
   }
 }
 
+export async function heartbeat(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await query(
+      `UPDATE users SET last_active_at = NOW() WHERE id = $1`,
+      [req.userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { refreshToken: token } = req.body;

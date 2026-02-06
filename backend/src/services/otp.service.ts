@@ -2,13 +2,43 @@ import { ENV } from '../config/env';
 import { query, queryOne } from '../config/database';
 import { hashOTP, compareOTP } from '../utils/hash';
 
+async function sendSMSviaFast2SMS(phone: string, otp: string): Promise<void> {
+  const apiKey = ENV.fast2sms.apiKey;
+  if (!apiKey) {
+    console.warn('[OTP] FAST2SMS_API_KEY not set. OTP not sent via SMS.');
+    return;
+  }
+
+  const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+    method: 'POST',
+    headers: {
+      'authorization': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      route: 'otp',
+      variables_values: otp,
+      flash: 0,
+      numbers: phone,
+    }),
+  });
+
+  const data = await response.json() as { return: boolean; message: string };
+
+  if (!data.return) {
+    console.error('[OTP] Fast2SMS error:', data.message);
+    throw new Error(`SMS delivery failed: ${data.message}`);
+  }
+
+  console.log(`[OTP] SMS sent to ${phone}`);
+}
+
 export async function generateOTP(phone: string): Promise<string> {
   // In demo mode, always return the demo OTP
   if (ENV.otp.demoMode) {
     const otpHash = await hashOTP(ENV.otp.demoCode);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // Update OTP in user record if exists
     await query(
       `UPDATE users SET otp_hash = $1, otp_expires_at = $2 WHERE phone = $3`,
       [otpHash, expiresAt.toISOString(), phone]
@@ -27,8 +57,8 @@ export async function generateOTP(phone: string): Promise<string> {
     [otpHash, expiresAt.toISOString(), phone]
   );
 
-  // In production, integrate SMS provider here (MSG91, Twilio, etc.)
-  console.log(`[OTP] Sending ${otp} to ${phone}`);
+  // Send OTP via Fast2SMS
+  await sendSMSviaFast2SMS(phone, otp);
 
   return otp;
 }

@@ -43,4 +43,7 @@ router.get('/me', authenticate, AuthController.getMe);
 // Update profile (protected)
 router.put('/profile', authenticate, AuthController.updateProfile);
 
+// Heartbeat - update last_active_at (protected)
+router.post('/heartbeat', authenticate, AuthController.heartbeat);
+
 export default router;

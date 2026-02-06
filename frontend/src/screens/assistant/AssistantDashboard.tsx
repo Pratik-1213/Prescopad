@@ -20,6 +20,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { usePatientStore } from '../../store/usePatientStore';
 import { useCloudSyncStore } from '../../store/useCloudSyncStore';
+import api from '../../services/api';
 import { QueueItem, QueueStatus } from '../../types/queue.types';
 import { ConnectionStatus } from '../../types/sync.types';
 import type { AssistantStackParamList } from '../../types/navigation.types';
@@ -67,6 +68,24 @@ export default function AssistantDashboard(): React.JSX.Element {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+
+  const { setDoctorReady } = useQueueStore();
+
+  // Poll doctor online status every 30 seconds
+  useEffect(() => {
+    const checkDoctorStatus = async () => {
+      try {
+        const res = await api.get('/clinic/doctor-status');
+        setDoctorReady(res.data.online ?? false);
+      } catch {
+        setDoctorReady(false);
+      }
+    };
+
+    checkDoctorStatus();
+    const interval = setInterval(checkDoctorStatus, 30_000);
+    return () => clearInterval(interval);
+  }, [setDoctorReady]);
 
   useFocusEffect(
     useCallback(() => {

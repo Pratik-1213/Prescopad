@@ -15,4 +15,7 @@ router.put('/', ClinicController.createOrUpdateClinic);
 // Join a clinic (assistant only - provide doctor's phone)
 router.post('/join', ClinicController.joinClinic);
 
+// Get doctor online status (for assistants to check)
+router.get('/doctor-status', ClinicController.getDoctorStatus);
+
 export default router;
