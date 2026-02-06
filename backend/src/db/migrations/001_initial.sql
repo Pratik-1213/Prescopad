@@ -33,10 +33,13 @@ CREATE TABLE IF NOT EXISTS clinics (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add foreign key for clinic_id in users
-ALTER TABLE users
-ADD CONSTRAINT fk_users_clinic
-FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE SET NULL;
+-- Add foreign key for clinic_id in users (idempotent)
+DO $$ BEGIN
+  ALTER TABLE users
+  ADD CONSTRAINT fk_users_clinic
+  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Wallets table
 CREATE TABLE IF NOT EXISTS wallets (
@@ -93,12 +96,15 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply triggers
+-- Apply triggers (idempotent)
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_clinics_updated_at ON clinics;
 CREATE TRIGGER update_clinics_updated_at BEFORE UPDATE ON clinics
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_wallets_updated_at ON wallets;
 CREATE TRIGGER update_wallets_updated_at BEFORE UPDATE ON wallets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

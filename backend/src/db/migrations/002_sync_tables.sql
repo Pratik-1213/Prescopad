@@ -145,20 +145,35 @@ CREATE INDEX IF NOT EXISTS idx_sync_custom_meds_updated ON sync_custom_medicines
 CREATE INDEX IF NOT EXISTS idx_sync_custom_tests_clinic ON sync_custom_lab_tests(clinic_id);
 CREATE INDEX IF NOT EXISTS idx_sync_custom_tests_updated ON sync_custom_lab_tests(clinic_id, updated_at);
 
--- Apply updated_at triggers (reuses function from 001_initial.sql)
+-- Apply updated_at triggers (idempotent, reuses function from 001_initial.sql)
+DROP TRIGGER IF EXISTS update_sync_patients_updated_at ON sync_patients;
 CREATE TRIGGER update_sync_patients_updated_at BEFORE UPDATE ON sync_patients
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_prescriptions_updated_at ON sync_prescriptions;
 CREATE TRIGGER update_sync_prescriptions_updated_at BEFORE UPDATE ON sync_prescriptions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_rx_meds_updated_at ON sync_prescription_medicines;
 CREATE TRIGGER update_sync_rx_meds_updated_at BEFORE UPDATE ON sync_prescription_medicines
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_rx_tests_updated_at ON sync_prescription_lab_tests;
 CREATE TRIGGER update_sync_rx_tests_updated_at BEFORE UPDATE ON sync_prescription_lab_tests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_queue_updated_at ON sync_queue;
 CREATE TRIGGER update_sync_queue_updated_at BEFORE UPDATE ON sync_queue
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_custom_meds_updated_at ON sync_custom_medicines;
 CREATE TRIGGER update_sync_custom_meds_updated_at BEFORE UPDATE ON sync_custom_medicines
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_custom_tests_updated_at ON sync_custom_lab_tests;
 CREATE TRIGGER update_sync_custom_tests_updated_at BEFORE UPDATE ON sync_custom_lab_tests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_cursors_updated_at ON sync_cursors;
 CREATE TRIGGER update_sync_cursors_updated_at BEFORE UPDATE ON sync_cursors
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

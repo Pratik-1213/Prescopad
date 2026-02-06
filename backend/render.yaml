@@ -3,7 +3,7 @@ services:
     name: prescopad-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm install && npm run build && cp -r src/db/migrations dist/db/ && node dist/db/migrate.js
     startCommand: npm start
     envVars:
       - key: NODE_ENV
