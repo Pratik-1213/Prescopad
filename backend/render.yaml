@@ -19,10 +19,12 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
       - key: OTP_DEMO_MODE
-        value: "false"
+        value: "true"
+      - key: OTP_DEMO_CODE
+        value: "123456"
       - key: FAST2SMS_API_KEY
         sync: false
       - key: RATE_LIMIT_WINDOW_MS
         value: "900000"
       - key: RATE_LIMIT_MAX
-        value: "100"
+        value: "500"

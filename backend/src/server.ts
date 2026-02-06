@@ -25,10 +25,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Rate limiting
+// Rate limiting (generous for dev/testing)
 app.use(rateLimit({
   windowMs: ENV.rateLimit.windowMs,
-  max: ENV.rateLimit.max,
+  max: ENV.isDev ? 1000 : ENV.rateLimit.max,
   message: { error: 'Too many requests, please try again later' },
 }));
 
