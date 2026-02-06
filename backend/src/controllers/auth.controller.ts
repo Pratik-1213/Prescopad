@@ -23,9 +23,13 @@ export async function sendOTP(req: Request, res: Response, next: NextFunction): 
 
     // Check if user exists
     let user = await queryOne<UserRow>(
-      `SELECT * FROM users WHERE phone = $1 AND role = $2`,
-      [phone, role]
+      `SELECT * FROM users WHERE phone = $1`,
+      [phone]
     );
+
+    if (user && user.role !== role) {
+      throw new AppError(`This phone number is already registered as ${user.role}. Please use a different number.`, 409);
+    }
 
     if (!user) {
       // Auto-register new user
