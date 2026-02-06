@@ -87,6 +87,17 @@ export async function verifyOTPHandler(req: Request, res: Response, next: NextFu
       throw new AppError('User not found', 404);
     }
 
+    // Auto-create clinic for existing doctors who don't have one yet
+    if (user.role === 'doctor' && !user.clinic_id) {
+      const clinicRows = await query<{ id: string }>(
+        `INSERT INTO clinics (name, owner_id) VALUES ($1, $2) RETURNING id`,
+        ['My Clinic', user.id]
+      );
+      const clinicId = clinicRows[0].id;
+      await query(`UPDATE users SET clinic_id = $1 WHERE id = $2`, [clinicId, user.id]);
+      user.clinic_id = clinicId;
+    }
+
     const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
