@@ -28,7 +28,7 @@ export const ENV = {
   },
 
   fast2sms: {
-    apiKey: process.env.FAST2SMS_API_KEY || '',
+    apiKey: process.env.FAST2SMS_API_KEY || 'KCrl685IyQWHdhtALsXeJNqP40YxRFVk1ozgOfBEMDnp7bmuS3QmEfiGOT74lFCeDXrKkY2Zn0oLI3pw',
   },
 
   razorpay: {
