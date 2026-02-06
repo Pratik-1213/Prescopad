@@ -32,11 +32,9 @@ export default function WalletScreen({ navigation }: WalletScreenProps): React.J
   const {
     balance,
     transactions,
-    lastSyncedAt,
-    loadCachedBalance,
-    syncBalance,
+    loadBalance,
+    loadTransactions,
     recharge,
-    setTransactions,
   } = useWalletStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -63,33 +61,19 @@ export default function WalletScreen({ navigation }: WalletScreenProps): React.J
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
-      await loadCachedBalance();
-      await syncFromCloud();
+      await Promise.all([loadBalance(), loadTransactions()]);
     } catch {
-      // Use cached balance on error
+      // Silently handle
     } finally {
       setIsLoading(false);
     }
   };
 
-  const syncFromCloud = async () => {
-    try {
-      const cloudBalance = await walletService.fetchWalletBalance();
-      if (cloudBalance >= 0) {
-        await syncBalance(cloudBalance);
-      }
-      const txns = await walletService.fetchTransactions();
-      setTransactions(txns);
-    } catch {
-      // Silently fail, use cached data
-    }
-  };
-
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await syncFromCloud();
+    await Promise.all([loadBalance(), loadTransactions()]);
     setIsRefreshing(false);
-  }, []);
+  }, [loadBalance, loadTransactions]);
 
   const handleRecharge = async (amount: number) => {
     if (amount <= 0) {
@@ -99,10 +83,8 @@ export default function WalletScreen({ navigation }: WalletScreenProps): React.J
 
     setIsRecharging(true);
     try {
-      const result = await walletService.rechargeWallet(amount);
-      await syncBalance(result.balance);
-      const txns = await walletService.fetchTransactions();
-      setTransactions(txns);
+      await recharge(amount);
+      await loadTransactions();
       setShowRecharge(false);
       setCustomAmount('');
       Alert.alert('Success', `${APP_CONFIG.wallet.currencySymbol}${amount} added to your wallet`);
@@ -206,11 +188,6 @@ export default function WalletScreen({ navigation }: WalletScreenProps): React.J
             <Text style={styles.balanceAmount}>
               {APP_CONFIG.wallet.currencySymbol}{balance.toFixed(2)}
             </Text>
-            {lastSyncedAt ? (
-              <Text style={styles.syncedText}>
-                Last synced: {formatDate(lastSyncedAt)}
-              </Text>
-            ) : null}
           </View>
 
           {/* Low Balance Warning */}
@@ -429,10 +406,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.white,
     marginBottom: SPACING.xs,
-  },
-  syncedText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.65)',
   },
   lowBalanceWarning: {
     flexDirection: 'row',

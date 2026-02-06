@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
+import NetworkBanner from './src/components/NetworkBanner';
 import { getDatabase } from './src/database/database';
 import { COLORS } from './src/constants/theme';
 import { APP_CONFIG } from './src/constants/config';
@@ -42,6 +43,7 @@ export default function App(): React.JSX.Element {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <StatusBar backgroundColor={COLORS.primary} barStyle="light-content" />
+        <NetworkBanner />
         <RootNavigator />
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Patient, PatientFormData } from '../types/patient.types';
-import * as PatientDB from '../database/queries/patientQueries';
+import * as DataService from '../services/dataService';
 
 interface PatientStore {
   patients: Patient[];
@@ -17,7 +17,7 @@ interface PatientStore {
   clearSearch: () => void;
 }
 
-export const usePatientStore = create<PatientStore>((set, get) => ({
+export const usePatientStore = create<PatientStore>((set) => ({
   patients: [],
   searchResults: [],
   selectedPatient: null,
@@ -25,8 +25,12 @@ export const usePatientStore = create<PatientStore>((set, get) => ({
 
   loadPatients: async () => {
     set({ isLoading: true });
-    const patients = await PatientDB.getAllPatients();
-    set({ patients, isLoading: false });
+    try {
+      const patients = await DataService.getPatients();
+      set({ patients, isLoading: false });
+    } catch {
+      set({ isLoading: false });
+    }
   },
 
   searchPatients: async (query: string) => {
@@ -34,19 +38,22 @@ export const usePatientStore = create<PatientStore>((set, get) => ({
       set({ searchResults: [] });
       return;
     }
-    const searchResults = await PatientDB.searchPatients(query);
-    set({ searchResults });
+    try {
+      const searchResults = await DataService.getPatients(query);
+      set({ searchResults });
+    } catch {
+      set({ searchResults: [] });
+    }
   },
 
   createPatient: async (data: PatientFormData) => {
-    const patient = await PatientDB.createPatient(data);
+    const patient = await DataService.createPatient(data);
     set((state) => ({ patients: [patient, ...state.patients] }));
     return patient;
   },
 
   updatePatient: async (id: string, data: Partial<PatientFormData>) => {
-    await PatientDB.updatePatient(id, data);
-    const updated = await PatientDB.getPatientById(id);
+    const updated = await DataService.updatePatient(id, data);
     if (updated) {
       set((state) => ({
         patients: state.patients.map((p) => (p.id === id ? updated : p)),
@@ -58,7 +65,7 @@ export const usePatientStore = create<PatientStore>((set, get) => ({
   selectPatient: (patient) => set({ selectedPatient: patient }),
 
   getPatientById: async (id: string) => {
-    return PatientDB.getPatientById(id);
+    return DataService.getPatientById(id);
   },
 
   clearSearch: () => set({ searchResults: [] }),

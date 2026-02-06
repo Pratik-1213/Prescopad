@@ -17,12 +17,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
 import {
-  searchLabTests,
-  getFrequentLabTests,
+  searchAllLabTests,
+  getAllFrequentLabTests,
   getLabTestsByCategory,
   addCustomLabTest,
   incrementLabTestUsage,
-} from '../../database/queries/medicineQueries';
+} from '../../services/dataService';
 import { LabTest, LAB_TEST_CATEGORIES } from '../../types/medicine.types';
 import { DoctorStackParamList } from '../../types/navigation.types';
 
@@ -60,7 +60,7 @@ export default function LabTestPickerScreen({ navigation }: LabTestPickerScreenP
 
   const loadFrequentTests = async () => {
     try {
-      const tests = await getFrequentLabTests();
+      const tests = await getAllFrequentLabTests();
       setLabTests(tests);
     } catch {
       // Silently handle
@@ -84,7 +84,7 @@ export default function LabTestPickerScreen({ navigation }: LabTestPickerScreenP
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchLabTests(text.trim());
+        const results = await searchAllLabTests(text.trim());
         setLabTests(results);
       } catch {
         // Silently handle
@@ -156,7 +156,7 @@ export default function LabTestPickerScreen({ navigation }: LabTestPickerScreenP
       });
 
       try {
-        await incrementLabTestUsage(test.name);
+        await incrementLabTestUsage(test.name, test.isCustom ?? false);
       } catch {
         // Non-critical
       }

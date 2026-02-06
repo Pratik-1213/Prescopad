@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   StatusBar,
   Alert,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,7 +14,6 @@ import { ParamListBase } from '@react-navigation/native';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 
 interface MenuItem {
   icon: keyof typeof Ionicons.glyphMap;
@@ -32,11 +30,6 @@ interface SettingsScreenProps {
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps): React.JSX.Element {
   const { user, logout } = useAuthStore();
-  const { isSyncing, lastPulledAt, unsyncedCount, sync: cloudSync, loadSyncStatus } = useCloudSyncStore();
-
-  useEffect(() => {
-    loadSyncStatus();
-  }, [loadSyncStatus]);
 
   const initials = user?.name
     ? user.name
@@ -46,28 +39,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
         .toUpperCase()
         .slice(0, 2)
     : '??';
-
-  const handleSync = async () => {
-    try {
-      await cloudSync();
-      Alert.alert('Sync Complete', 'Your data has been synced with the cloud.');
-    } catch {
-      Alert.alert('Sync Failed', 'Could not sync. Please check your internet connection.');
-    }
-  };
-
-  const getSyncSubtitle = (): string => {
-    if (isSyncing) return 'Syncing...';
-    const parts: string[] = [];
-    if (unsyncedCount > 0) parts.push(`${unsyncedCount} pending`);
-    if (lastPulledAt) {
-      const date = new Date(lastPulledAt);
-      parts.push(`Last: ${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-    } else {
-      parts.push('Never synced');
-    }
-    return parts.join(' · ');
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -96,17 +67,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
     },
     {
       icon: 'sync-outline',
-      label: 'Pair Device',
+      label: 'Clinic Connection',
       subtitle: 'Connect doctor and assistant devices',
       onPress: () => navigation.navigate('PairingSettings'),
       showArrow: true,
-    },
-    {
-      icon: 'cloud-upload-outline',
-      label: 'Sync Now',
-      subtitle: getSyncSubtitle(),
-      onPress: handleSync,
-      showArrow: false,
     },
     {
       icon: 'information-circle-outline',

@@ -85,11 +85,6 @@ export default function LoginScreen({ navigation, route }: Props): React.JSX.Ele
           )}
         </TouchableOpacity>
 
-        {__DEV__ && (
-          <Text style={styles.demoHint}>
-            Demo: Use 9876543210 / OTP: 123456
-          </Text>
-        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -168,11 +163,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
-  },
-  demoHint: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    marginTop: SPACING.xl,
   },
 });

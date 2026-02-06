@@ -21,10 +21,7 @@ import { useQueueStore } from '../../store/useQueueStore';
 import { useClinicStore } from '../../store/useClinicStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import { useSyncStore } from '../../store/useSyncStore';
-import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import { QueueItem, QueueStatus } from '../../types/queue.types';
-import { ConnectionStatus } from '../../types/sync.types';
 import { DoctorStackParamList } from '../../types/navigation.types';
 
 type DoctorDashboardProps = NativeStackScreenProps<DoctorStackParamList, 'DoctorDashboard'>;
@@ -33,10 +30,8 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   const user = useAuthStore((s) => s.user);
   const clinic = useClinicStore((s) => s.clinic);
   const doctorProfile = useClinicStore((s) => s.doctorProfile);
-  const { queueItems, stats, isLoading, loadQueue, loadStats, startConsult } = useQueueStore();
-  const { balance, loadCachedBalance } = useWalletStore();
-  const connectionStatus = useSyncStore((s) => s.connectionStatus);
-  const cloudSync = useCloudSyncStore((s) => s.sync);
+  const { queueItems, stats, isLoading, loadQueue, loadStats, startConsult, startPolling, stopPolling } = useQueueStore();
+  const { balance, loadBalance } = useWalletStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -76,16 +71,17 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
     await Promise.all([
       loadQueue(),
       loadStats(),
-      loadCachedBalance(),
+      loadBalance(),
     ]);
-  }, [loadQueue, loadStats, loadCachedBalance]);
+  }, [loadQueue, loadStats, loadBalance]);
 
+  // Start queue polling on focus, stop on blur
   useFocusEffect(
     useCallback(() => {
       loadData();
-      // Background cloud sync (non-blocking)
-      cloudSync().catch(() => { /* silent */ });
-    }, [loadData, cloudSync])
+      startPolling();
+      return () => { stopPolling(); };
+    }, [loadData, startPolling, stopPolling])
   );
 
   const handleRefresh = async () => {
@@ -115,7 +111,6 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
     }
   };
 
-  const isConnected = connectionStatus === ConnectionStatus.CONNECTED;
   const doctorName = doctorProfile?.name || user?.name || 'Doctor';
   const clinicName = clinic?.name || APP_CONFIG.name;
 
@@ -215,28 +210,10 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
             <Text style={styles.clinicName}>{clinicName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.syncBadge}
-              onPress={() => navigation.navigate('Pairing')}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.syncDot,
-                  { backgroundColor: isConnected ? COLORS.success : COLORS.error },
-                ]}
-              />
-              <Text style={styles.syncText}>
-                {isConnected ? 'Synced' : 'Offline'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.pairButton}
-              onPress={() => navigation.navigate('Pairing')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="bluetooth" size={20} color={COLORS.primary} />
-            </TouchableOpacity>
+            <View style={styles.syncBadge}>
+              <View style={[styles.syncDot, { backgroundColor: COLORS.success }]} />
+              <Text style={styles.syncText}>Online</Text>
+            </View>
           </View>
         </View>
       </View>

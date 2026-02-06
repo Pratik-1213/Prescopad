@@ -5,8 +5,7 @@ import {
   PrescriptionMedicine,
   PrescriptionLabTest,
 } from '../types/prescription.types';
-import * as PrescriptionDB from '../database/queries/prescriptionQueries';
-import { generateId } from '../database/database';
+import * as DataService from '../services/dataService';
 
 type MedicineDraft = Omit<PrescriptionMedicine, 'id' | 'prescriptionId'>;
 type LabTestDraft = Omit<PrescriptionLabTest, 'id' | 'prescriptionId'>;
@@ -99,30 +98,39 @@ export const usePrescriptionStore = create<PrescriptionStore>((set, get) => ({
 
   createPrescription: async (doctorId) => {
     set({ isLoading: true });
-    const prescription = await PrescriptionDB.createPrescription(get().currentDraft, doctorId);
-    set({ currentPrescription: prescription, isLoading: false });
-    return prescription;
+    try {
+      const prescription = await DataService.createPrescription(get().currentDraft, doctorId);
+      set({ currentPrescription: prescription, isLoading: false });
+      return prescription;
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
   },
 
-  finalizePrescription: async (id, signature, pdfPath, pdfHash) => {
-    await PrescriptionDB.finalizePrescription(id, signature, pdfPath, pdfHash);
-    const updated = await PrescriptionDB.getPrescriptionById(id);
+  finalizePrescription: async (id, signature, _pdfPath, pdfHash) => {
+    await DataService.finalizePrescription(id, signature, pdfHash);
+    const updated = await DataService.getPrescriptionById(id);
     set({ currentPrescription: updated });
   },
 
   loadRecentPrescriptions: async () => {
     set({ isLoading: true });
-    const recentPrescriptions = await PrescriptionDB.getRecentPrescriptions();
-    set({ recentPrescriptions, isLoading: false });
+    try {
+      const recentPrescriptions = await DataService.getRecentPrescriptions();
+      set({ recentPrescriptions, isLoading: false });
+    } catch {
+      set({ isLoading: false });
+    }
   },
 
   loadPrescription: async (id) => {
-    const prescription = await PrescriptionDB.getPrescriptionById(id);
+    const prescription = await DataService.getPrescriptionById(id);
     set({ currentPrescription: prescription });
     return prescription;
   },
 
   getTodayCount: async () => {
-    return PrescriptionDB.getTodayPrescriptionCount();
+    return DataService.getTodayPrescriptionCount();
   },
 }));

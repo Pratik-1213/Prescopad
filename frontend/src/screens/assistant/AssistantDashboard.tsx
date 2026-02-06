@@ -17,12 +17,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { useQueueStore } from '../../store/useQueueStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useSyncStore } from '../../store/useSyncStore';
 import { usePatientStore } from '../../store/usePatientStore';
-import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import api from '../../services/api';
 import { QueueItem, QueueStatus } from '../../types/queue.types';
-import { ConnectionStatus } from '../../types/sync.types';
 import type { AssistantStackParamList } from '../../types/navigation.types';
 
 type NavigationProp = NativeStackNavigationProp<AssistantStackParamList>;
@@ -59,11 +56,9 @@ function getStatusLabel(status: QueueStatus): string {
 
 export default function AssistantDashboard(): React.JSX.Element {
   const navigation = useNavigation<NavigationProp>();
-  const { queueItems, stats, isLoading, doctorReady, loadQueue, loadStats } =
+  const { queueItems, stats, isLoading, doctorReady, loadQueue, loadStats, startPolling, stopPolling } =
     useQueueStore();
   const user = useAuthStore((s) => s.user);
-  const connectionStatus = useSyncStore((s) => s.connectionStatus);
-  const cloudSync = useCloudSyncStore((s) => s.sync);
   const { searchPatients, searchResults, clearSearch } = usePatientStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,9 +86,9 @@ export default function AssistantDashboard(): React.JSX.Element {
     useCallback(() => {
       loadQueue();
       loadStats();
-      // Background cloud sync (non-blocking)
-      cloudSync().catch(() => { /* silent */ });
-    }, [loadQueue, loadStats, cloudSync]),
+      startPolling();
+      return () => { stopPolling(); };
+    }, [loadQueue, loadStats, startPolling, stopPolling]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -130,8 +125,6 @@ export default function AssistantDashboard(): React.JSX.Element {
     },
     [user, clearSearch],
   );
-
-  const isSynced = connectionStatus === ConnectionStatus.CONNECTED;
 
   const activeQueue = queueItems.filter(
     (item) =>
@@ -219,21 +212,15 @@ export default function AssistantDashboard(): React.JSX.Element {
             </Text>
           </View>
           <View style={styles.headerIcons}>
-            {/* Sync Indicator */}
+            {/* Online Indicator */}
             <View style={styles.syncIndicator}>
               <View
                 style={[
                   styles.syncDot,
-                  {
-                    backgroundColor: isSynced
-                      ? COLORS.success
-                      : COLORS.warningLight,
-                  },
+                  { backgroundColor: COLORS.success },
                 ]}
               />
-              <Text style={styles.syncText}>
-                {isSynced ? 'Synced' : 'Offline'}
-              </Text>
+              <Text style={styles.syncText}>Online</Text>
             </View>
           </View>
         </View>

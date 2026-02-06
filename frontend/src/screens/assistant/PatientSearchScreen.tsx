@@ -19,7 +19,7 @@ import { usePatientStore } from '../../store/usePatientStore';
 import { useQueueStore } from '../../store/useQueueStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Patient } from '../../types/patient.types';
-import { getRecentPatients } from '../../database/queries/patientQueries';
+import { getRecentPatients } from '../../services/dataService';
 import type { AssistantStackParamList } from '../../types/navigation.types';
 
 type NavigationProp = NativeStackNavigationProp<AssistantStackParamList>;

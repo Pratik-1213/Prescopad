@@ -17,11 +17,11 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
 import {
-  searchMedicines,
-  getFrequentMedicines,
+  searchAllMedicines,
+  getAllFrequentMedicines,
   addCustomMedicine,
   incrementMedicineUsage,
-} from '../../database/queries/medicineQueries';
+} from '../../services/dataService';
 import {
   Medicine,
   MedicineType,
@@ -64,7 +64,7 @@ export default function MedicinePickerScreen({ navigation }: MedicinePickerScree
 
   const loadFrequentMedicines = async () => {
     try {
-      const frequentMeds = await getFrequentMedicines();
+      const frequentMeds = await getAllFrequentMedicines();
       setMedicines(frequentMeds);
     } catch {
       // Silently handle
@@ -88,7 +88,7 @@ export default function MedicinePickerScreen({ navigation }: MedicinePickerScree
     searchTimeout.current = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchMedicines(text.trim());
+        const results = await searchAllMedicines(text.trim());
         setMedicines(results);
       } catch {
         // Silently handle
@@ -135,7 +135,7 @@ export default function MedicinePickerScreen({ navigation }: MedicinePickerScree
 
     // Increment usage count for ranking
     try {
-      await incrementMedicineUsage(selectedMedicine.name);
+      await incrementMedicineUsage(selectedMedicine.name, selectedMedicine.isCustom ?? false);
     } catch {
       // Non-critical
     }

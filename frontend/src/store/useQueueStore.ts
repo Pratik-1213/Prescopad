@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { QueueItem, QueueStatus } from '../types/queue.types';
-import * as QueueDB from '../database/queries/queueQueries';
+import * as DataService from '../services/dataService';
 
 interface QueueStore {
   queueItems: QueueItem[];
@@ -8,6 +8,7 @@ interface QueueStore {
   stats: { total: number; waiting: number; inProgress: number; completed: number };
   isLoading: boolean;
   doctorReady: boolean;
+  pollInterval: ReturnType<typeof setInterval> | null;
 
   loadQueue: () => Promise<void>;
   loadStats: () => Promise<void>;
@@ -18,6 +19,8 @@ interface QueueStore {
   removeFromQueue: (queueItemId: string) => Promise<void>;
   setDoctorReady: (ready: boolean) => void;
   getNextPatient: () => QueueItem | undefined;
+  startPolling: () => void;
+  stopPolling: () => void;
 }
 
 export const useQueueStore = create<QueueStore>((set, get) => ({
@@ -26,47 +29,55 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
   stats: { total: 0, waiting: 0, inProgress: 0, completed: 0 },
   isLoading: false,
   doctorReady: false,
+  pollInterval: null,
 
   loadQueue: async () => {
-    set({ isLoading: true });
-    const queueItems = await QueueDB.getTodayQueue();
-    const activeItem = queueItems.find((q) => q.status === QueueStatus.IN_PROGRESS) ?? null;
-    set({ queueItems, activeItem, isLoading: false });
+    try {
+      const queueItems = await DataService.getTodayQueue();
+      const activeItem = queueItems.find((q) => q.status === QueueStatus.IN_PROGRESS) ?? null;
+      set({ queueItems, activeItem });
+    } catch {
+      // keep existing data on error
+    }
   },
 
   loadStats: async () => {
-    const stats = await QueueDB.getTodayStats();
-    set({ stats });
+    try {
+      const stats = await DataService.getTodayStats();
+      set({ stats });
+    } catch {
+      // keep existing stats on error
+    }
   },
 
   addToQueue: async (patientId, addedBy, notes) => {
-    const item = await QueueDB.addToQueue(patientId, addedBy, notes);
+    const item = await DataService.addToQueue(patientId, addedBy, notes);
     await get().loadQueue();
     await get().loadStats();
     return item;
   },
 
   startConsult: async (queueItemId) => {
-    await QueueDB.updateQueueStatus(queueItemId, QueueStatus.IN_PROGRESS);
+    await DataService.updateQueueStatus(queueItemId, QueueStatus.IN_PROGRESS);
     await get().loadQueue();
     await get().loadStats();
   },
 
   completeConsult: async (queueItemId) => {
-    await QueueDB.updateQueueStatus(queueItemId, QueueStatus.COMPLETED);
+    await DataService.updateQueueStatus(queueItemId, QueueStatus.COMPLETED);
     set({ activeItem: null });
     await get().loadQueue();
     await get().loadStats();
   },
 
   cancelQueueItem: async (queueItemId) => {
-    await QueueDB.updateQueueStatus(queueItemId, QueueStatus.CANCELLED);
+    await DataService.updateQueueStatus(queueItemId, QueueStatus.CANCELLED);
     await get().loadQueue();
     await get().loadStats();
   },
 
   removeFromQueue: async (queueItemId) => {
-    await QueueDB.removeFromQueue(queueItemId);
+    await DataService.removeFromQueue(queueItemId);
     await get().loadQueue();
     await get().loadStats();
   },
@@ -76,5 +87,24 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
   getNextPatient: () => {
     const { queueItems } = get();
     return queueItems.find((q) => q.status === QueueStatus.WAITING);
+  },
+
+  startPolling: () => {
+    if (get().pollInterval) return;
+    get().loadQueue();
+    get().loadStats();
+    const interval = setInterval(() => {
+      get().loadQueue();
+      get().loadStats();
+    }, 10_000);
+    set({ pollInterval: interval });
+  },
+
+  stopPolling: () => {
+    const { pollInterval } = get();
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      set({ pollInterval: null });
+    }
   },
 }));

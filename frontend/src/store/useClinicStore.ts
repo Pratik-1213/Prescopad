@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
 import { Clinic, DoctorProfile } from '../types/clinic.types';
-import { getDatabase } from '../database/database';
+import api from '../services/api';
 
 interface ClinicStore {
   clinic: Clinic | null;
@@ -22,90 +23,97 @@ export const useClinicStore = create<ClinicStore>((set, get) => ({
   isLoading: false,
 
   loadClinic: async () => {
-    const db = await getDatabase();
-    const row = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM clinic LIMIT 1');
-    if (row) {
-      set({
-        clinic: {
-          id: row.id as string,
-          name: row.name as string,
-          address: (row.address ?? '') as string,
-          phone: (row.phone ?? '') as string,
-          email: (row.email ?? '') as string,
-          logoBase64: (row.logo_base64 ?? null) as string | null,
-          ownerId: (row.doctor_id ?? '') as string,
-        },
-      });
+    try {
+      const res = await api.get('/clinic');
+      const c = res.data.clinic;
+      if (c) {
+        set({
+          clinic: {
+            id: c.id,
+            name: c.name || '',
+            address: c.address || '',
+            phone: c.phone || '',
+            email: c.email || '',
+            logoBase64: c.logo_url || c.logoBase64 || null,
+            ownerId: c.owner_id || '',
+          },
+        });
+      }
+    } catch {
+      // no clinic yet
     }
   },
 
   loadDoctorProfile: async () => {
-    const db = await getDatabase();
-    const row = await db.getFirstAsync<Record<string, unknown>>('SELECT * FROM doctors LIMIT 1');
-    if (row) {
-      set({
-        doctorProfile: {
-          id: row.id as string,
-          name: row.name as string,
-          phone: (row.phone ?? '') as string,
-          specialty: (row.specialty ?? '') as string,
-          regNumber: (row.reg_number ?? '') as string,
-          signatureBase64: (row.signature_base64 ?? null) as string | null,
-          cloudId: (row.cloud_id ?? '') as string,
-        },
-      });
+    try {
+      const res = await api.get('/auth/me');
+      const u = res.data.user;
+      // Load signature from local secure storage
+      const signatureBase64 = await SecureStore.getItemAsync('doctorSignature');
+      if (u) {
+        set({
+          doctorProfile: {
+            id: u.id,
+            name: u.name || '',
+            phone: u.phone || '',
+            specialty: u.specialty || '',
+            regNumber: u.regNumber || '',
+            signatureBase64: signatureBase64 || null,
+            cloudId: u.id,
+          },
+        });
+      }
+    } catch {
+      // not logged in
     }
   },
 
   updateClinic: async (data) => {
-    const db = await getDatabase();
     const current = get().clinic;
     if (!current) return;
 
-    const fields: string[] = [];
-    const values: (string | null)[] = [];
+    const payload: Record<string, unknown> = {};
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.address !== undefined) payload.address = data.address;
+    if (data.phone !== undefined) payload.phone = data.phone;
+    if (data.email !== undefined) payload.email = data.email;
+    if (data.logoBase64 !== undefined) payload.logo_url = data.logoBase64;
 
-    if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
-    if (data.address !== undefined) { fields.push('address = ?'); values.push(data.address); }
-    if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
-    if (data.email !== undefined) { fields.push('email = ?'); values.push(data.email); }
-    if (data.logoBase64 !== undefined) { fields.push('logo_base64 = ?'); values.push(data.logoBase64); }
-
-    if (fields.length === 0) return;
-
-    fields.push("updated_at = datetime('now')");
-    values.push(current.id);
-
-    await db.runAsync(`UPDATE clinic SET ${fields.join(', ')} WHERE id = ?`, values);
+    await api.put('/clinic', payload);
     set({ clinic: { ...current, ...data } });
   },
 
   updateDoctorProfile: async (data) => {
-    const db = await getDatabase();
     const current = get().doctorProfile;
     if (!current) return;
 
-    const fields: string[] = [];
-    const values: (string | null)[] = [];
+    // Update cloud fields (name, specialty, regNumber)
+    const payload: Record<string, unknown> = {};
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.specialty !== undefined) payload.specialty = data.specialty;
+    if (data.regNumber !== undefined) payload.regNumber = data.regNumber;
 
-    if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
-    if (data.specialty !== undefined) { fields.push('specialty = ?'); values.push(data.specialty); }
-    if (data.regNumber !== undefined) { fields.push('reg_number = ?'); values.push(data.regNumber); }
-    if (data.signatureBase64 !== undefined) { fields.push('signature_base64 = ?'); values.push(data.signatureBase64); }
+    if (Object.keys(payload).length > 0) {
+      await api.put('/auth/profile', payload);
+    }
 
-    if (fields.length === 0) return;
+    // Save signature locally (it's a large base64 blob, keep on device)
+    if (data.signatureBase64 !== undefined) {
+      if (data.signatureBase64) {
+        await SecureStore.setItemAsync('doctorSignature', data.signatureBase64);
+      } else {
+        await SecureStore.deleteItemAsync('doctorSignature');
+      }
+    }
 
-    fields.push("updated_at = datetime('now')");
-    values.push(current.id);
-
-    await db.runAsync(`UPDATE doctors SET ${fields.join(', ')} WHERE id = ?`, values);
     set({ doctorProfile: { ...current, ...data } });
   },
 
   saveSignature: async (signatureBase64: string) => {
     const current = get().doctorProfile;
     if (!current) return;
-    await get().updateDoctorProfile({ signatureBase64 });
+    await SecureStore.setItemAsync('doctorSignature', signatureBase64);
+    set({ doctorProfile: { ...current, signatureBase64 } });
   },
 
   setClinic: (clinic) => set({ clinic }),

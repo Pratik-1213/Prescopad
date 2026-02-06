@@ -1,19 +1,18 @@
 import { create } from 'zustand';
-import { Transaction, LocalWalletCache } from '../types/wallet.types';
-import * as WalletCache from '../database/queries/walletCacheQueries';
+import { Transaction } from '../types/wallet.types';
+import * as walletService from '../services/walletService';
 import { APP_CONFIG } from '../constants/config';
 
 interface WalletStore {
   balance: number;
   transactions: Transaction[];
   isLoading: boolean;
-  lastSyncedAt: string;
 
-  loadCachedBalance: () => Promise<void>;
-  syncBalance: (cloudBalance: number) => Promise<void>;
+  loadBalance: () => Promise<void>;
   deductForPrescription: () => Promise<boolean>;
   recharge: (amount: number) => Promise<void>;
-  canAfford: () => Promise<boolean>;
+  canAfford: () => boolean;
+  loadTransactions: () => Promise<void>;
   setTransactions: (transactions: Transaction[]) => void;
 }
 
@@ -21,36 +20,46 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   balance: 0,
   transactions: [],
   isLoading: false,
-  lastSyncedAt: '',
 
-  loadCachedBalance: async () => {
-    const cache = await WalletCache.getWalletCache();
-    set({ balance: cache.balance, lastSyncedAt: cache.lastSyncedAt });
-  },
-
-  syncBalance: async (cloudBalance: number) => {
-    await WalletCache.updateWalletCache(cloudBalance);
-    set({ balance: cloudBalance, lastSyncedAt: new Date().toISOString() });
+  loadBalance: async () => {
+    set({ isLoading: true });
+    try {
+      const balance = await walletService.fetchWalletBalance();
+      set({ balance, isLoading: false });
+    } catch {
+      set({ isLoading: false });
+    }
   },
 
   deductForPrescription: async () => {
     const cost = APP_CONFIG.wallet.costPerPrescription;
-    const canPay = await WalletCache.canAffordPrescription(cost);
-    if (!canPay) return false;
+    if (get().balance < cost) return false;
 
-    const newBalance = await WalletCache.deductFromWalletCache(cost);
-    set({ balance: newBalance });
-    return true;
+    try {
+      const result = await walletService.deductWallet(cost, 'Prescription fee', '');
+      set({ balance: result.balance });
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   recharge: async (amount: number) => {
-    const newBalance = get().balance + amount;
-    await WalletCache.updateWalletCache(newBalance);
-    set({ balance: newBalance });
+    const result = await walletService.rechargeWallet(amount);
+    set({ balance: result.balance });
   },
 
-  canAfford: async () => {
-    return WalletCache.canAffordPrescription(APP_CONFIG.wallet.costPerPrescription);
+  canAfford: () => {
+    return get().balance >= APP_CONFIG.wallet.costPerPrescription;
+  },
+
+  loadTransactions: async () => {
+    try {
+      const transactions = await walletService.fetchTransactions();
+      set({ transactions });
+    } catch {
+      // keep existing
+    }
   },
 
   setTransactions: (transactions) => set({ transactions }),

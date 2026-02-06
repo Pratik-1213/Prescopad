@@ -61,13 +61,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-// Check if backend server is reachable
-export async function isOnline(): Promise<boolean> {
-  try {
-    await axios.get(`${BASE_URL}/health`, { timeout: 3000 });
-    return true;
-  } catch {
-    return false;
-  }
-}

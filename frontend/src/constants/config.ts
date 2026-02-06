@@ -44,11 +44,8 @@ export const APP_CONFIG = {
     currencySymbol: '\u20B9',
   },
 
-  sync: {
-    port: 8765,
-    pingInterval: 5000,
-    reconnectDelay: 3000,
-    maxReconnectAttempts: 5,
+  polling: {
+    queueIntervalMs: 10000,
   },
 
   prescription: {

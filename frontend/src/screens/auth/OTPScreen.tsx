@@ -9,9 +9,7 @@ import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { verifyOTP } from '../../services/authService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import { UserRole } from '../../types/auth.types';
-import { getDatabase, generateId } from '../../database/database';
 import { AuthStackParamList } from '../../types/navigation.types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'OTP'>;
@@ -21,8 +19,7 @@ export default function OTPScreen({ navigation, route }: Props): React.JSX.Eleme
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const setUser = useAuthStore((s) => s.setUser);
-  const loadCachedBalance = useWalletStore((s) => s.loadCachedBalance);
-  const fullRestore = useCloudSyncStore((s) => s.fullRestore);
+  const loadBalance = useWalletStore((s) => s.loadBalance);
   const inputRef = useRef<TextInput>(null);
 
   const handleVerify = async () => {
@@ -35,40 +32,11 @@ export default function OTPScreen({ navigation, route }: Props): React.JSX.Eleme
     try {
       const response = await verifyOTP(phone, otp, role as UserRole);
 
-      // Initialize local database
-      const db = await getDatabase();
-
-      // Save user profile to local DB
-      if (role === 'doctor') {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO doctors (id, name, phone, cloud_id) VALUES (?, ?, ?, ?)`,
-          [generateId(), response.user.name, phone, response.user.id]
-        );
-        // Initialize clinic if not exists
-        const clinic = await db.getFirstAsync('SELECT * FROM clinic LIMIT 1');
-        if (!clinic) {
-          await db.runAsync(
-            `INSERT INTO clinic (id, name, doctor_id) VALUES (?, ?, ?)`,
-            [generateId(), 'My Clinic', response.user.id]
-          );
-        }
-      } else {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO assistants (id, name, phone, cloud_id) VALUES (?, ?, ?, ?)`,
-          [generateId(), response.user.name, phone, response.user.id]
-        );
-      }
-
       // Set auth state (must await - stores tokens in SecureStore)
       await setUser(response.user, response.accessToken, response.refreshToken);
 
-      // Load cached data
-      await loadCachedBalance();
-
-      // Restore data from cloud if user has a clinicId (background, non-blocking)
-      if (response.user.clinicId) {
-        fullRestore().catch(() => { /* silent - will sync later */ });
-      }
+      // Load wallet balance from cloud
+      loadBalance().catch(() => { /* silent */ });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'OTP verification failed';
       Alert.alert('Error', msg);

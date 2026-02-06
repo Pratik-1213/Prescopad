@@ -21,7 +21,7 @@ import { useQueueStore } from '../../store/useQueueStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Patient } from '../../types/patient.types';
 import { Prescription } from '../../types/prescription.types';
-import { getPrescriptionsByPatient } from '../../database/queries/prescriptionQueries';
+import { getPrescriptionsByPatient } from '../../services/dataService';
 import type { AssistantStackParamList } from '../../types/navigation.types';
 
 type NavigationProp = NativeStackNavigationProp<AssistantStackParamList>;

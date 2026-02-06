@@ -15,6 +15,8 @@ interface UserRow {
   password_hash: string | null;
   clinic_id: string | null;
   is_active: boolean;
+  specialty: string;
+  reg_number: string;
 }
 
 export async function sendOTP(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -170,6 +172,8 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
         name: user.name,
         role: user.role,
         clinicId: user.clinic_id || '',
+        specialty: user.specialty || '',
+        regNumber: user.reg_number || '',
       },
     });
   } catch (error) {
@@ -179,13 +183,15 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
 
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, specialty, regNumber } = req.body;
     const fields: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
 
     if (name) { fields.push(`name = $${paramIndex++}`); values.push(name); }
     if (phone) { fields.push(`phone = $${paramIndex++}`); values.push(phone); }
+    if (specialty !== undefined) { fields.push(`specialty = $${paramIndex++}`); values.push(specialty); }
+    if (regNumber !== undefined) { fields.push(`reg_number = $${paramIndex++}`); values.push(regNumber); }
 
     if (fields.length === 0) {
       throw new AppError('No fields to update', 400);

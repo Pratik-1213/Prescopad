@@ -54,7 +54,7 @@ export default function PrescriptionPreviewScreen({ navigation, route }: Props):
     setIsSigning(true);
     try {
       // Step 1: Check wallet balance
-      const affordable = await canAfford();
+      const affordable = canAfford();
       if (!affordable) {
         Alert.alert(
           'Insufficient Balance',
