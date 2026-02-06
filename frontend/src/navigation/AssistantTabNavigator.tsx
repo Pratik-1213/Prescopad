@@ -12,7 +12,7 @@ import PatientDetailScreen from '../screens/assistant/PatientDetailScreen';
 
 // Shared screens
 import SettingsScreen from '../screens/shared/SettingsScreen';
-import PairingScreen from '../screens/shared/PairingScreen';
+import ConnectionScreen from '../screens/shared/ConnectionScreen';
 
 const Tab = createBottomTabNavigator();
 const QueueStack = createNativeStackNavigator();
@@ -42,7 +42,7 @@ function AssistantSettingsStack(): React.JSX.Element {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: false }} />
+      <SettingsStack.Screen name="ConnectionSettings" component={ConnectionScreen} options={{ headerShown: false }} />
     </SettingsStack.Navigator>
   );
 }

@@ -182,7 +182,7 @@ export async function getPatients(
   if (search && search.trim()) {
     const pattern = `%${search.trim()}%`;
     return query<PatientRow>(
-      `SELECT * FROM sync_patients
+      `SELECT * FROM patients
        WHERE clinic_id = $1 AND is_deleted = false
          AND (name ILIKE $2 OR phone ILIKE $2)
        ORDER BY updated_at DESC
@@ -191,7 +191,7 @@ export async function getPatients(
     );
   }
   return query<PatientRow>(
-    `SELECT * FROM sync_patients
+    `SELECT * FROM patients
      WHERE clinic_id = $1 AND is_deleted = false
      ORDER BY updated_at DESC
      LIMIT $2 OFFSET $3`,
@@ -204,7 +204,7 @@ export async function getPatientById(
   patientId: string
 ): Promise<PatientRow | null> {
   return queryOne<PatientRow>(
-    `SELECT * FROM sync_patients WHERE id = $1 AND clinic_id = $2 AND is_deleted = false`,
+    `SELECT * FROM patients WHERE id = $1 AND clinic_id = $2 AND is_deleted = false`,
     [patientId, clinicId]
   );
 }
@@ -216,7 +216,7 @@ export async function createPatient(
   const id = uuidv4();
   const now = new Date().toISOString();
   const rows = await query<PatientRow>(
-    `INSERT INTO sync_patients (id, clinic_id, name, age, gender, weight, phone, address, blood_group, allergies, is_deleted, created_at, updated_at)
+    `INSERT INTO patients (id, clinic_id, name, age, gender, weight, phone, address, blood_group, allergies, is_deleted, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, $11, $11)
      RETURNING *`,
     [id, clinicId, data.name, data.age, data.gender, data.weight ?? null, data.phone ?? '', data.address ?? '', data.blood_group ?? '', data.allergies ?? '', now]
@@ -254,7 +254,7 @@ export async function updatePatient(
   values.push(clinicId);
 
   const rows = await query<PatientRow>(
-    `UPDATE sync_patients SET ${fields.join(', ')}
+    `UPDATE patients SET ${fields.join(', ')}
      WHERE id = $${idx++} AND clinic_id = $${idx}
      RETURNING *`,
     values
@@ -277,8 +277,8 @@ export async function getTodayQueue(clinicId: string): Promise<QueueRow[]> {
             sp.address AS patient_address,
             sp.blood_group AS patient_blood_group,
             sp.allergies AS patient_allergies
-     FROM sync_queue sq
-     LEFT JOIN sync_patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
+     FROM queue sq
+     LEFT JOIN patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
      WHERE sq.clinic_id = $1
        AND DATE(sq.added_at) = CURRENT_DATE
        AND sq.is_deleted = false
@@ -294,7 +294,7 @@ export async function getTodayStats(clinicId: string): Promise<QueueStats> {
        COUNT(*) FILTER (WHERE status = 'waiting')::int AS waiting,
        COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
-     FROM sync_queue
+     FROM queue
      WHERE clinic_id = $1
        AND DATE(added_at) = CURRENT_DATE
        AND is_deleted = false`,
@@ -315,14 +315,14 @@ export async function addToQueue(
   // Get next token number for today
   const maxRow = await queryOne<{ max_token: number }>(
     `SELECT COALESCE(MAX(token_number), 0)::int AS max_token
-     FROM sync_queue
+     FROM queue
      WHERE clinic_id = $1 AND DATE(added_at) = CURRENT_DATE`,
     [clinicId]
   );
   const tokenNumber = (maxRow?.max_token ?? 0) + 1;
 
   const rows = await query<QueueRow>(
-    `INSERT INTO sync_queue (id, clinic_id, patient_id, status, added_by, notes, token_number, added_at, is_deleted, updated_at)
+    `INSERT INTO queue (id, clinic_id, patient_id, status, added_by, notes, token_number, added_at, is_deleted, updated_at)
      VALUES ($1, $2, $3, 'waiting', $4, $5, $6, $7, false, $7)
      RETURNING *`,
     [id, clinicId, patientId, addedBy, notes, tokenNumber, now]
@@ -335,8 +335,8 @@ export async function addToQueue(
             sp.age AS patient_age,
             sp.gender AS patient_gender,
             sp.phone AS patient_phone
-     FROM sync_queue sq
-     LEFT JOIN sync_patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
+     FROM queue sq
+     LEFT JOIN patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
      WHERE sq.id = $1 AND sq.clinic_id = $2`,
     [rows[0].id, clinicId]
   );
@@ -358,7 +358,7 @@ export async function updateQueueStatus(
   }
 
   const rows = await query<QueueRow>(
-    `UPDATE sync_queue SET status = $1, updated_at = $2 ${extraField}
+    `UPDATE queue SET status = $1, updated_at = $2 ${extraField}
      WHERE id = $3 AND clinic_id = $4
      RETURNING *`,
     [status, now, queueItemId, clinicId]
@@ -371,7 +371,7 @@ export async function removeFromQueue(
   queueItemId: string
 ): Promise<void> {
   await query(
-    `UPDATE sync_queue SET is_deleted = true, updated_at = $1
+    `UPDATE queue SET is_deleted = true, updated_at = $1
      WHERE id = $2 AND clinic_id = $3`,
     [new Date().toISOString(), queueItemId, clinicId]
   );
@@ -391,7 +391,7 @@ export async function createPrescription(
   return transaction(async (client: PoolClient) => {
     // Insert prescription
     const rxResult = await client.query(
-      `INSERT INTO sync_prescriptions
+      `INSERT INTO prescriptions
          (id, clinic_id, patient_id, patient_name, patient_age, patient_gender, patient_phone,
           doctor_id, diagnosis, advice, follow_up_date, status, wallet_deducted, is_deleted, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'draft', 0, false, $12, $12)
@@ -406,7 +406,7 @@ export async function createPrescription(
     for (const med of data.medicines) {
       const medId = uuidv4();
       const medResult = await client.query(
-        `INSERT INTO sync_prescription_medicines
+        `INSERT INTO prescription_medicines
            (id, clinic_id, prescription_id, medicine_name, type, dosage, frequency, duration, timing, notes, is_deleted, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, $11, $11)
          RETURNING *`,
@@ -421,7 +421,7 @@ export async function createPrescription(
     for (const test of data.lab_tests) {
       const testId = uuidv4();
       const testResult = await client.query(
-        `INSERT INTO sync_prescription_lab_tests
+        `INSERT INTO prescription_lab_tests
            (id, clinic_id, prescription_id, test_name, category, notes, is_deleted, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, false, $7, $7)
          RETURNING *`,
@@ -439,20 +439,20 @@ export async function getPrescriptionById(
   prescriptionId: string
 ): Promise<(PrescriptionRow & { medicines: PrescriptionMedicineRow[]; lab_tests: PrescriptionLabTestRow[] }) | null> {
   const prescription = await queryOne<PrescriptionRow>(
-    `SELECT * FROM sync_prescriptions WHERE id = $1 AND clinic_id = $2 AND is_deleted = false`,
+    `SELECT * FROM prescriptions WHERE id = $1 AND clinic_id = $2 AND is_deleted = false`,
     [prescriptionId, clinicId]
   );
   if (!prescription) return null;
 
   const medicines = await query<PrescriptionMedicineRow>(
-    `SELECT * FROM sync_prescription_medicines
+    `SELECT * FROM prescription_medicines
      WHERE prescription_id = $1 AND clinic_id = $2 AND is_deleted = false
      ORDER BY created_at ASC`,
     [prescriptionId, clinicId]
   );
 
   const labTests = await query<PrescriptionLabTestRow>(
-    `SELECT * FROM sync_prescription_lab_tests
+    `SELECT * FROM prescription_lab_tests
      WHERE prescription_id = $1 AND clinic_id = $2 AND is_deleted = false
      ORDER BY created_at ASC`,
     [prescriptionId, clinicId]
@@ -466,7 +466,7 @@ export async function getRecentPrescriptions(
   limit = 20
 ): Promise<PrescriptionRow[]> {
   return query<PrescriptionRow>(
-    `SELECT * FROM sync_prescriptions
+    `SELECT * FROM prescriptions
      WHERE clinic_id = $1 AND is_deleted = false AND status = 'finalized'
      ORDER BY created_at DESC
      LIMIT $2`,
@@ -479,7 +479,7 @@ export async function getPrescriptionsByPatient(
   patientId: string
 ): Promise<PrescriptionRow[]> {
   return query<PrescriptionRow>(
-    `SELECT * FROM sync_prescriptions
+    `SELECT * FROM prescriptions
      WHERE clinic_id = $1 AND patient_id = $2 AND is_deleted = false
      ORDER BY created_at DESC`,
     [clinicId, patientId]
@@ -494,7 +494,7 @@ export async function finalizePrescription(
 ): Promise<PrescriptionRow | null> {
   const now = new Date().toISOString();
   const rows = await query<PrescriptionRow>(
-    `UPDATE sync_prescriptions
+    `UPDATE prescriptions
      SET status = 'finalized', signature = $1, pdf_hash = $2, wallet_deducted = 1, updated_at = $3
      WHERE id = $4 AND clinic_id = $5
      RETURNING *`,
@@ -505,7 +505,7 @@ export async function finalizePrescription(
 
 export async function getTodayPrescriptionCount(clinicId: string): Promise<number> {
   const row = await queryOne<{ count: number }>(
-    `SELECT COUNT(*)::int AS count FROM sync_prescriptions
+    `SELECT COUNT(*)::int AS count FROM prescriptions
      WHERE clinic_id = $1 AND DATE(created_at) = CURRENT_DATE AND status = 'finalized' AND is_deleted = false`,
     [clinicId]
   );
@@ -523,9 +523,9 @@ export async function addCustomMedicine(
   const id = uuidv4();
   const now = new Date().toISOString();
   const rows = await query<CustomMedicineRow>(
-    `INSERT INTO sync_custom_medicines (id, clinic_id, name, type, strength, manufacturer, usage_count, is_deleted, created_at, updated_at)
+    `INSERT INTO custom_medicines (id, clinic_id, name, type, strength, manufacturer, usage_count, is_deleted, created_at, updated_at)
      VALUES ($1, $2, $3, $4, $5, '', 0, false, $6, $6)
-     ON CONFLICT (id, clinic_id) DO NOTHING
+     ON CONFLICT (clinic_id, name) DO UPDATE SET usage_count = custom_medicines.usage_count + 1, updated_at = $6
      RETURNING *`,
     [id, clinicId, data.name, data.type, data.strength, now]
   );
@@ -537,7 +537,7 @@ export async function incrementMedicineUsage(
   name: string
 ): Promise<void> {
   await query(
-    `UPDATE sync_custom_medicines SET usage_count = usage_count + 1, updated_at = $1
+    `UPDATE custom_medicines SET usage_count = usage_count + 1, updated_at = $1
      WHERE clinic_id = $2 AND name = $3 AND is_deleted = false`,
     [new Date().toISOString(), clinicId, name]
   );
@@ -549,7 +549,7 @@ export async function searchCustomMedicines(
 ): Promise<CustomMedicineRow[]> {
   const pattern = `%${searchQuery.trim()}%`;
   return query<CustomMedicineRow>(
-    `SELECT * FROM sync_custom_medicines
+    `SELECT * FROM custom_medicines
      WHERE clinic_id = $1 AND is_deleted = false AND name ILIKE $2
      ORDER BY usage_count DESC
      LIMIT 30`,
@@ -562,7 +562,7 @@ export async function getFrequentCustomMedicines(
   limit = 20
 ): Promise<CustomMedicineRow[]> {
   return query<CustomMedicineRow>(
-    `SELECT * FROM sync_custom_medicines
+    `SELECT * FROM custom_medicines
      WHERE clinic_id = $1 AND is_deleted = false
      ORDER BY usage_count DESC
      LIMIT $2`,
@@ -581,9 +581,9 @@ export async function addCustomLabTest(
   const id = uuidv4();
   const now = new Date().toISOString();
   const rows = await query<CustomLabTestRow>(
-    `INSERT INTO sync_custom_lab_tests (id, clinic_id, name, category, usage_count, is_deleted, created_at, updated_at)
+    `INSERT INTO custom_lab_tests (id, clinic_id, name, category, usage_count, is_deleted, created_at, updated_at)
      VALUES ($1, $2, $3, $4, 0, false, $5, $5)
-     ON CONFLICT (id, clinic_id) DO NOTHING
+     ON CONFLICT (clinic_id, name) DO UPDATE SET usage_count = custom_lab_tests.usage_count + 1, updated_at = $5
      RETURNING *`,
     [id, clinicId, data.name, data.category, now]
   );
@@ -595,7 +595,7 @@ export async function incrementLabTestUsage(
   name: string
 ): Promise<void> {
   await query(
-    `UPDATE sync_custom_lab_tests SET usage_count = usage_count + 1, updated_at = $1
+    `UPDATE custom_lab_tests SET usage_count = usage_count + 1, updated_at = $1
      WHERE clinic_id = $2 AND name = $3 AND is_deleted = false`,
     [new Date().toISOString(), clinicId, name]
   );
@@ -607,7 +607,7 @@ export async function searchCustomLabTests(
 ): Promise<CustomLabTestRow[]> {
   const pattern = `%${searchQuery.trim()}%`;
   return query<CustomLabTestRow>(
-    `SELECT * FROM sync_custom_lab_tests
+    `SELECT * FROM custom_lab_tests
      WHERE clinic_id = $1 AND is_deleted = false AND (name ILIKE $2 OR category ILIKE $2)
      ORDER BY usage_count DESC
      LIMIT 30`,
@@ -620,7 +620,7 @@ export async function getFrequentCustomLabTests(
   limit = 20
 ): Promise<CustomLabTestRow[]> {
   return query<CustomLabTestRow>(
-    `SELECT * FROM sync_custom_lab_tests
+    `SELECT * FROM custom_lab_tests
      WHERE clinic_id = $1 AND is_deleted = false
      ORDER BY usage_count DESC
      LIMIT $2`,

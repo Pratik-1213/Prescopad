@@ -32,11 +32,16 @@ export default function OTPScreen({ navigation, route }: Props): React.JSX.Eleme
     try {
       const response = await verifyOTP(phone, otp, role as UserRole);
 
-      // Set auth state (must await - stores tokens in SecureStore)
-      await setUser(response.user, response.accessToken, response.refreshToken);
-
-      // Load wallet balance from cloud
-      loadBalance().catch(() => { /* silent */ });
+      if (response.isNewUser || !response.user.isProfileComplete) {
+        // New user or incomplete profile - go to registration
+        // Store tokens first so registration API calls work
+        await setUser(response.user, response.accessToken, response.refreshToken);
+        navigation.replace('Registration', { role });
+      } else {
+        // Existing user with complete profile - go to main app
+        await setUser(response.user, response.accessToken, response.refreshToken);
+        loadBalance().catch(() => { /* silent */ });
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'OTP verification failed';
       Alert.alert('Error', msg);

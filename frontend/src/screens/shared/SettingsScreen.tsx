@@ -69,7 +69,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
       icon: 'sync-outline',
       label: 'Clinic Connection',
       subtitle: 'Connect doctor and assistant devices',
-      onPress: () => navigation.navigate('PairingSettings'),
+      onPress: () => navigation.navigate('ConnectionSettings'),
       showArrow: true,
     },
     {

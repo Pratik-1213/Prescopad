@@ -23,9 +23,12 @@ export default function RootNavigator(): React.JSX.Element {
     );
   }
 
+  // Show AuthStack if not authenticated OR if profile is incomplete
+  const showAuth = !isAuthenticated || (isAuthenticated && user && !user.isProfileComplete);
+
   return (
     <NavigationContainer>
-      {!isAuthenticated ? (
+      {showAuth ? (
         <AuthStack />
       ) : user?.role === UserRole.DOCTOR ? (
         <DoctorTabNavigator />

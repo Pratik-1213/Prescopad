@@ -37,6 +37,12 @@ router.post(
 // Refresh access token
 router.post('/refresh-token', AuthController.refreshToken);
 
+// Complete registration (new user profile setup)
+router.post('/complete-registration', authenticate, AuthController.completeRegistration);
+
+// Refresh session (get fresh tokens with updated clinicId)
+router.post('/refresh-session', authenticate, AuthController.refreshSession);
+
 // Get current user (protected)
 router.get('/me', authenticate, AuthController.getMe);
 

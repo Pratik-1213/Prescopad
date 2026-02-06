@@ -6,6 +6,7 @@ export type AuthStackParamList = {
   Landing: undefined;
   Login: { role: string };
   OTP: { phone: string; role: string };
+  Registration: { role: string };
 };
 
 export type DoctorTabParamList = {
@@ -29,7 +30,7 @@ export type DoctorStackParamList = {
   PrescriptionPreview: { prescriptionId: string };
   DigitalSignature: { prescriptionId: string };
   RxSuccess: { prescription: Prescription };
-  Pairing: undefined;
+  Connection: undefined;
 };
 
 export type AssistantStackParamList = {
@@ -38,7 +39,7 @@ export type AssistantStackParamList = {
   PatientSearch: undefined;
   PatientDetail: { patientId: string };
   QueueManagement: undefined;
-  Pairing: undefined;
+  Connection: undefined;
 };
 
 export type SharedStackParamList = {

@@ -17,7 +17,7 @@ import RxSuccessScreen from '../screens/doctor/RxSuccessScreen';
 import WalletScreen from '../screens/shared/WalletScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import ClinicProfileScreen from '../screens/shared/ClinicProfileScreen';
-import PairingScreen from '../screens/shared/PairingScreen';
+import ConnectionScreen from '../screens/shared/ConnectionScreen';
 
 const Tab = createBottomTabNavigator();
 const QueueStack = createNativeStackNavigator<DoctorStackParamList>();
@@ -33,7 +33,7 @@ function DoctorQueueStack(): React.JSX.Element {
       <QueueStack.Screen name="LabTestPicker" component={LabTestPickerScreen} options={{ headerShown: true, title: 'Add Lab Test' }} />
       <QueueStack.Screen name="PrescriptionPreview" component={PrescriptionPreviewScreen} options={{ headerShown: false }} />
       <QueueStack.Screen name="RxSuccess" component={RxSuccessScreen} options={{ headerShown: false }} />
-      <QueueStack.Screen name="Pairing" component={PairingScreen} options={{ headerShown: false }} />
+      <QueueStack.Screen name="Connection" component={ConnectionScreen} options={{ headerShown: false }} />
     </QueueStack.Navigator>
   );
 }
@@ -51,7 +51,7 @@ function DoctorSettingsStack(): React.JSX.Element {
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
       <SettingsStack.Screen name="ClinicProfile" component={ClinicProfileScreen} options={{ headerShown: false }} />
-      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: false }} />
+      <SettingsStack.Screen name="ConnectionSettings" component={ConnectionScreen} options={{ headerShown: false }} />
     </SettingsStack.Navigator>
   );
 }

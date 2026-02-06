@@ -17,13 +17,28 @@ interface UserRow {
   is_active: boolean;
   specialty: string;
   reg_number: string;
+  doctor_code: string | null;
+  is_profile_complete: boolean;
+}
+
+function buildUserResponse(user: UserRow) {
+  return {
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    role: user.role,
+    clinicId: user.clinic_id || '',
+    specialty: user.specialty || '',
+    regNumber: user.reg_number || '',
+    doctorCode: user.doctor_code || '',
+    isProfileComplete: user.is_profile_complete,
+  };
 }
 
 export async function sendOTP(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { phone, role } = req.body;
 
-    // Check if user exists
     let user = await queryOne<UserRow>(
       `SELECT * FROM users WHERE phone = $1`,
       [phone]
@@ -34,25 +49,29 @@ export async function sendOTP(req: Request, res: Response, next: NextFunction): 
     }
 
     if (!user) {
-      // Auto-register new user
       const rows = await query<UserRow>(
         `INSERT INTO users (phone, role, name) VALUES ($1, $2, $3) RETURNING *`,
         [phone, role, role === 'doctor' ? 'Doctor' : 'Assistant']
       );
       user = rows[0];
 
-      // Create wallet and clinic for doctor
       if (role === 'doctor') {
-        await createWalletForUser(user.id, 100); // Free starting balance
+        await createWalletForUser(user.id, 100);
 
-        // Auto-create clinic for new doctor
+        // Auto-create clinic
         const clinicRows = await query<{ id: string }>(
           `INSERT INTO clinics (name, owner_id) VALUES ($1, $2) RETURNING id`,
           ['My Clinic', user.id]
         );
         const clinicId = clinicRows[0].id;
-        await query(`UPDATE users SET clinic_id = $1 WHERE id = $2`, [clinicId, user.id]);
+
+        // Generate unique doctor code
+        const codeResult = await query<{ doctor_code: string }>(
+          `UPDATE users SET clinic_id = $1, doctor_code = generate_doctor_code() WHERE id = $2 RETURNING doctor_code`,
+          [clinicId, user.id]
+        );
         user.clinic_id = clinicId;
+        user.doctor_code = codeResult[0].doctor_code;
       }
     }
 
@@ -61,7 +80,6 @@ export async function sendOTP(req: Request, res: Response, next: NextFunction): 
     res.json({
       success: true,
       message: `OTP sent to ${phone}`,
-      // In demo mode, return OTP for testing
       ...(process.env.OTP_DEMO_MODE === 'true' ? { otp } : {}),
     });
   } catch (error) {
@@ -98,19 +116,98 @@ export async function verifyOTPHandler(req: Request, res: Response, next: NextFu
       user.clinic_id = clinicId;
     }
 
+    // Generate doctor_code if doctor doesn't have one
+    if (user.role === 'doctor' && !user.doctor_code) {
+      const codeResult = await query<{ doctor_code: string }>(
+        `UPDATE users SET doctor_code = generate_doctor_code() WHERE id = $1 RETURNING doctor_code`,
+        [user.id]
+      );
+      user.doctor_code = codeResult[0].doctor_code;
+    }
+
     const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        clinicId: user.clinic_id || '',
-      },
+      user: buildUserResponse(user),
+      isNewUser: !user.is_profile_complete,
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function completeRegistration(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { name, specialty, regNumber, clinicName } = req.body;
+
+    if (!name || !name.trim()) {
+      throw new AppError('Name is required', 400);
+    }
+
+    if (req.userRole === 'doctor') {
+      if (!clinicName || !clinicName.trim()) {
+        throw new AppError('Clinic name is required for doctors', 400);
+      }
+
+      await query(
+        `UPDATE users SET name = $1, specialty = $2, reg_number = $3, is_profile_complete = true WHERE id = $4`,
+        [name.trim(), specialty?.trim() || '', regNumber?.trim() || '', req.userId]
+      );
+
+      await query(
+        `UPDATE clinics SET name = $1 WHERE owner_id = $2`,
+        [clinicName.trim(), req.userId]
+      );
+    } else {
+      await query(
+        `UPDATE users SET name = $1, is_profile_complete = true WHERE id = $2`,
+        [name.trim(), req.userId]
+      );
+    }
+
+    const user = await queryOne<UserRow>(
+      `SELECT * FROM users WHERE id = $1`,
+      [req.userId]
+    );
+
+    if (!user) throw new AppError('User not found', 404);
+
+    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    res.json({
+      success: true,
+      user: buildUserResponse(user),
+      accessToken,
+      refreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function refreshSession(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await queryOne<UserRow>(
+      `SELECT * FROM users WHERE id = $1`,
+      [req.userId]
+    );
+
+    if (!user) throw new AppError('User not found', 404);
+
+    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    res.json({
+      success: true,
+      user: buildUserResponse(user),
       accessToken,
       refreshToken,
     });
@@ -138,7 +235,6 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         throw new AppError('Invalid credentials', 401);
       }
     } else {
-      // First login - set password
       const hash = await hashPassword(password);
       await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, user.id]);
     }
@@ -149,13 +245,8 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        clinicId: user.clinic_id || '',
-      },
+      user: buildUserResponse(user),
+      isNewUser: !user.is_profile_complete,
       accessToken,
       refreshToken,
     });
@@ -177,15 +268,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        clinicId: user.clinic_id || '',
-        specialty: user.specialty || '',
-        regNumber: user.reg_number || '',
-      },
+      user: buildUserResponse(user),
     });
   } catch (error) {
     next(error);

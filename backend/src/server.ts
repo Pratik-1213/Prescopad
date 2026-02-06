@@ -10,8 +10,8 @@ import authRoutes from './routes/auth.routes';
 import walletRoutes from './routes/wallet.routes';
 import clinicRoutes from './routes/clinic.routes';
 import notificationRoutes from './routes/notification.routes';
-import syncRoutes from './routes/sync.routes';
 import dataRoutes from './routes/data.routes';
+import connectionRoutes from './routes/connection.routes';
 
 const app = express();
 
@@ -51,8 +51,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/sync', syncRoutes);
 app.use('/api/data', dataRoutes);
+app.use('/api/connection', connectionRoutes);
 
 // Error handling
 app.use(notFound);

@@ -32,3 +32,18 @@ export async function getMe(): Promise<AuthResponse['user']> {
 export async function updateProfile(data: { name?: string; phone?: string; specialty?: string; regNumber?: string }): Promise<void> {
   await api.put('/auth/profile', data);
 }
+
+export async function completeRegistration(data: {
+  name: string;
+  specialty?: string;
+  regNumber?: string;
+  clinicName?: string;
+}): Promise<AuthResponse> {
+  const response = await api.post('/auth/complete-registration', data);
+  return response.data;
+}
+
+export async function refreshSession(): Promise<AuthResponse> {
+  const response = await api.post('/auth/refresh-session');
+  return response.data;
+}

@@ -9,6 +9,8 @@ export interface User {
   name: string;
   role: UserRole;
   clinicId: string;
+  doctorCode?: string;
+  isProfileComplete: boolean;
   createdAt: string;
 }
 
@@ -33,6 +35,7 @@ export interface AuthResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+  isNewUser?: boolean;
 }
 
 export interface AuthState {
