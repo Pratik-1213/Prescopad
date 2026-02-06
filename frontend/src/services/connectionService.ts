@@ -1,5 +1,5 @@
 import api from './api';
-import { ConnectionRequest, TeamMember } from '../types/connection.types';
+import { ConnectionRequest, TeamMember, ClinicListItem } from '../types/connection.types';
 
 export async function inviteAssistant(assistantPhone: string): Promise<ConnectionRequest> {
   const response = await api.post('/connection/invite', { assistantPhone });
@@ -31,4 +31,10 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 
 export async function disconnectAssistant(assistantId: string): Promise<void> {
   await api.delete(`/connection/team/${assistantId}`);
+}
+
+export async function listClinics(search?: string): Promise<ClinicListItem[]> {
+  const params = search ? { search } : {};
+  const response = await api.get('/clinic/list', { params });
+  return response.data.clinics;
 }

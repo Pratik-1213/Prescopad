@@ -12,12 +12,14 @@ import MedicinePickerScreen from '../screens/doctor/MedicinePickerScreen';
 import LabTestPickerScreen from '../screens/doctor/LabTestPickerScreen';
 import PrescriptionPreviewScreen from '../screens/doctor/PrescriptionPreviewScreen';
 import RxSuccessScreen from '../screens/doctor/RxSuccessScreen';
+import PatientHistoryScreen from '../screens/doctor/PatientHistoryScreen';
 
 // Shared screens
 import WalletScreen from '../screens/shared/WalletScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import ClinicProfileScreen from '../screens/shared/ClinicProfileScreen';
 import ConnectionScreen from '../screens/shared/ConnectionScreen';
+import PatientFormScreen from '../screens/shared/PatientFormScreen';
 
 const Tab = createBottomTabNavigator();
 const QueueStack = createNativeStackNavigator<DoctorStackParamList>();
@@ -33,6 +35,8 @@ function DoctorQueueStack(): React.JSX.Element {
       <QueueStack.Screen name="LabTestPicker" component={LabTestPickerScreen} options={{ headerShown: true, title: 'Add Lab Test' }} />
       <QueueStack.Screen name="PrescriptionPreview" component={PrescriptionPreviewScreen} options={{ headerShown: false }} />
       <QueueStack.Screen name="RxSuccess" component={RxSuccessScreen} options={{ headerShown: false }} />
+      <QueueStack.Screen name="PatientHistory" component={PatientHistoryScreen} options={{ headerShown: false }} />
+      <QueueStack.Screen name="EditPatient" component={PatientFormScreen} options={{ headerShown: false }} />
       <QueueStack.Screen name="Connection" component={ConnectionScreen} options={{ headerShown: false }} />
     </QueueStack.Navigator>
   );

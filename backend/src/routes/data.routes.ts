@@ -15,6 +15,9 @@ router.put('/patients/:id', DataController.updatePatient);
 // ─── Queue ───────────────────────────────────────────────────────────────────
 router.get('/queue/today', DataController.getTodayQueue);
 router.get('/queue/stats', DataController.getQueueStats);
+router.get('/queue/filtered', DataController.getQueueFiltered);
+router.get('/queue/stats/filtered', DataController.getQueueStatsFiltered);
+router.get('/queue/patient/:patientId', DataController.getQueueHistoryByPatient);
 router.post('/queue', DataController.addToQueue);
 router.put('/queue/:id/status', DataController.updateQueueStatus);
 router.delete('/queue/:id', DataController.removeFromQueue);

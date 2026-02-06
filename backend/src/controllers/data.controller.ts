@@ -110,6 +110,37 @@ export async function removeFromQueue(req: AuthRequest, res: Response, next: Nex
   } catch (error) { next(error); }
 }
 
+export async function getQueueFiltered(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const clinicId = requireClinic(req);
+    const { status, todayOnly, limit, offset } = req.query;
+    const queue = await DataService.getQueueFiltered(clinicId, {
+      status: status as string | undefined,
+      todayOnly: todayOnly === 'true',
+      limit: limit ? parseInt(limit as string) : undefined,
+      offset: offset ? parseInt(offset as string) : undefined,
+    });
+    res.json({ success: true, queue });
+  } catch (error) { next(error); }
+}
+
+export async function getQueueStatsFiltered(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const clinicId = requireClinic(req);
+    const todayOnly = req.query.todayOnly === 'true';
+    const stats = await DataService.getQueueStats(clinicId, todayOnly);
+    res.json({ success: true, stats });
+  } catch (error) { next(error); }
+}
+
+export async function getQueueHistoryByPatient(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const clinicId = requireClinic(req);
+    const history = await DataService.getQueueHistoryByPatient(clinicId, param(req, 'patientId'));
+    res.json({ success: true, history });
+  } catch (error) { next(error); }
+}
+
 // ─── Prescriptions ───────────────────────────────────────────────────────────
 
 export async function createPrescription(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

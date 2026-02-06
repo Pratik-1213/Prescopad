@@ -143,7 +143,7 @@ export async function verifyOTPHandler(req: Request, res: Response, next: NextFu
 
 export async function completeRegistration(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { name, specialty, regNumber, clinicName } = req.body;
+    const { name, specialty, regNumber, clinicName, qualification, experienceYears, address, city, selectedClinicId } = req.body;
 
     if (!name || !name.trim()) {
       throw new AppError('Name is required', 400);
@@ -163,11 +163,48 @@ export async function completeRegistration(req: AuthRequest, res: Response, next
         `UPDATE clinics SET name = $1 WHERE owner_id = $2`,
         [clinicName.trim(), req.userId]
       );
+
+      // Upsert doctor_profiles
+      await query(
+        `INSERT INTO doctor_profiles (user_id, specialty, reg_number)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id) DO UPDATE SET specialty = $2, reg_number = $3`,
+        [req.userId, specialty?.trim() || '', regNumber?.trim() || '']
+      );
     } else {
       await query(
         `UPDATE users SET name = $1, is_profile_complete = true WHERE id = $2`,
         [name.trim(), req.userId]
       );
+
+      // Upsert assistant_profiles
+      await query(
+        `INSERT INTO assistant_profiles (user_id, qualification, experience_years, address, city)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id) DO UPDATE SET qualification = $2, experience_years = $3, address = $4, city = $5`,
+        [req.userId, qualification?.trim() || '', parseInt(experienceYears) || 0, address?.trim() || '', city?.trim() || '']
+      );
+
+      // Auto-create connection request if assistant selected a clinic
+      if (selectedClinicId) {
+        const clinic = await queryOne<{ id: string; owner_id: string }>(
+          `SELECT id, owner_id FROM clinics WHERE id = $1`,
+          [selectedClinicId]
+        );
+        if (clinic) {
+          const existing = await queryOne<{ id: string }>(
+            `SELECT id FROM connection_requests WHERE doctor_id = $1 AND assistant_id = $2 AND status = 'pending'`,
+            [clinic.owner_id, req.userId]
+          );
+          if (!existing) {
+            await query(
+              `INSERT INTO connection_requests (clinic_id, doctor_id, assistant_id, initiated_by, status)
+               VALUES ($1, $2, $3, 'assistant', 'pending')`,
+              [clinic.id, clinic.owner_id, req.userId]
+            );
+          }
+        }
+      }
     }
 
     const user = await queryOne<UserRow>(

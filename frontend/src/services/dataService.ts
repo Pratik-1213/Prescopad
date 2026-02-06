@@ -209,6 +209,29 @@ export async function removeFromQueue(id: string): Promise<void> {
   await api.delete(`/data/queue/${id}`);
 }
 
+export async function getQueueFiltered(options?: { status?: string; todayOnly?: boolean; limit?: number; offset?: number }): Promise<QueueItem[]> {
+  const params: Record<string, string | number | boolean> = {};
+  if (options?.status) params.status = options.status;
+  if (options?.todayOnly !== undefined) params.todayOnly = options.todayOnly;
+  if (options?.limit) params.limit = options.limit;
+  if (options?.offset) params.offset = options.offset;
+  const res = await api.get('/data/queue/filtered', { params });
+  return (res.data.queue as Record<string, unknown>[]).map(mapQueueItem);
+}
+
+export async function getQueueStatsFiltered(todayOnly?: boolean): Promise<{ total: number; waiting: number; inProgress: number; completed: number }> {
+  const params: Record<string, boolean> = {};
+  if (todayOnly !== undefined) params.todayOnly = todayOnly;
+  const res = await api.get('/data/queue/stats/filtered', { params });
+  const s = res.data.stats;
+  return {
+    total: s.total,
+    waiting: s.waiting,
+    inProgress: s.in_progress,
+    completed: s.completed,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRESCRIPTIONS
 // ═══════════════════════════════════════════════════════════════════════════════

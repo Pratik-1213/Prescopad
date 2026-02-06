@@ -25,6 +25,7 @@ type Props = NativeStackScreenProps<DoctorStackParamList, 'PrescriptionPreview'>
 
 export default function PrescriptionPreviewScreen({ navigation, route }: Props): React.JSX.Element {
   const prescriptionId = route.params.prescriptionId;
+  const readOnly = route.params.readOnly ?? false;
   const { currentPrescription, loadPrescription, finalizePrescription } = usePrescriptionStore();
   const { canAfford, deductForPrescription, balance } = useWalletStore();
   const { clinic, doctorProfile } = useClinicStore();
@@ -257,33 +258,35 @@ export default function PrescriptionPreviewScreen({ navigation, route }: Props):
         </View>
       </ScrollView>
 
-      {/* Sign & Issue Button */}
-      <View style={styles.bottomBar}>
-        <View style={styles.costInfo}>
-          <Ionicons name="wallet-outline" size={18} color={COLORS.textMuted} />
-          <Text style={styles.costText}>
-            Cost: {APP_CONFIG.wallet.currencySymbol}{APP_CONFIG.wallet.costPerPrescription}
-          </Text>
-          <Text style={styles.balanceText}>
-            Balance: {APP_CONFIG.wallet.currencySymbol}{balance}
-          </Text>
+      {/* Sign & Issue Button — hidden in read-only mode */}
+      {!readOnly && (
+        <View style={styles.bottomBar}>
+          <View style={styles.costInfo}>
+            <Ionicons name="wallet-outline" size={18} color={COLORS.textMuted} />
+            <Text style={styles.costText}>
+              Cost: {APP_CONFIG.wallet.currencySymbol}{APP_CONFIG.wallet.costPerPrescription}
+            </Text>
+            <Text style={styles.balanceText}>
+              Balance: {APP_CONFIG.wallet.currencySymbol}{balance}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.signButton, isSigning && styles.buttonDisabled]}
+            onPress={handleSignAndIssue}
+            disabled={isSigning}
+            activeOpacity={0.8}
+          >
+            {isSigning ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={22} color={COLORS.white} />
+                <Text style={styles.signButtonText}>Sign & Issue</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.signButton, isSigning && styles.buttonDisabled]}
-          onPress={handleSignAndIssue}
-          disabled={isSigning}
-          activeOpacity={0.8}
-        >
-          {isSigning ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={22} color={COLORS.white} />
-              <Text style={styles.signButtonText}>Sign & Issue</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      )}
     </View>
   );
 }

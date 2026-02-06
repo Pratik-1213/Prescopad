@@ -187,6 +187,12 @@ export default function ConsultScreen({ navigation, route }: ConsultScreenProps)
                 </View>
               ) : null}
             </View>
+            <TouchableOpacity
+              style={styles.editPatientButton}
+              onPress={() => patient && navigation.navigate('EditPatient', { patientId: patient.id })}
+            >
+              <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -406,6 +412,10 @@ const styles = StyleSheet.create({
   },
   patientDetails: {
     flex: 1,
+  },
+  editPatientButton: {
+    padding: SPACING.sm,
+    marginLeft: SPACING.sm,
   },
   patientName: {
     fontSize: 17,

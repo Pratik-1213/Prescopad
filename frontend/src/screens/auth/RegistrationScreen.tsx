@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView,
+  KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { completeRegistration } from '../../services/authService';
+import { listClinics } from '../../services/connectionService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { AuthStackParamList } from '../../types/navigation.types';
+import { ClinicListItem } from '../../types/connection.types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Registration'>;
 
@@ -17,30 +19,76 @@ export default function RegistrationScreen({ route }: Props): React.JSX.Element 
   const isDoctor = role === 'doctor';
   const setUser = useAuthStore((s) => s.setUser);
 
+  // Common
   const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Doctor fields
   const [specialty, setSpecialty] = useState('');
   const [regNumber, setRegNumber] = useState('');
   const [clinicName, setClinicName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Assistant fields
+  const [qualification, setQualification] = useState('');
+  const [experienceYears, setExperienceYears] = useState('');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
+
+  // Clinic picker for assistant
+  const [clinics, setClinics] = useState<ClinicListItem[]>([]);
+  const [clinicSearch, setClinicSearch] = useState('');
+  const [selectedClinic, setSelectedClinic] = useState<ClinicListItem | null>(null);
+  const [loadingClinics, setLoadingClinics] = useState(false);
 
   const canSubmit = name.trim().length >= 2 && (!isDoctor || clinicName.trim().length >= 2);
+
+  const fetchClinics = useCallback(async (search?: string) => {
+    setLoadingClinics(true);
+    try {
+      const result = await listClinics(search);
+      setClinics(result);
+    } catch {
+      // Silently fail — clinics list is optional
+    } finally {
+      setLoadingClinics(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isDoctor) {
+      fetchClinics();
+    }
+  }, [isDoctor, fetchClinics]);
+
+  useEffect(() => {
+    if (!isDoctor) {
+      const timer = setTimeout(() => {
+        fetchClinics(clinicSearch || undefined);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [clinicSearch, isDoctor, fetchClinics]);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
     setIsLoading(true);
     try {
-      const data: { name: string; specialty?: string; regNumber?: string; clinicName?: string } = {
-        name: name.trim(),
-      };
+      const data: Record<string, unknown> = { name: name.trim() };
 
       if (isDoctor) {
         if (specialty.trim()) data.specialty = specialty.trim();
         if (regNumber.trim()) data.regNumber = regNumber.trim();
         data.clinicName = clinicName.trim();
+      } else {
+        if (qualification.trim()) data.qualification = qualification.trim();
+        if (experienceYears.trim()) data.experienceYears = parseInt(experienceYears) || 0;
+        if (city.trim()) data.city = city.trim();
+        if (address.trim()) data.address = address.trim();
+        if (selectedClinic) data.selectedClinicId = selectedClinic.id;
       }
 
-      const response = await completeRegistration(data);
+      const response = await completeRegistration(data as Parameters<typeof completeRegistration>[0]);
       await setUser(response.user, response.accessToken, response.refreshToken);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Registration failed';
@@ -48,6 +96,33 @@ export default function RegistrationScreen({ route }: Props): React.JSX.Element 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const renderClinicCard = ({ item }: { item: ClinicListItem }) => {
+    const isSelected = selectedClinic?.id === item.id;
+    return (
+      <TouchableOpacity
+        style={[styles.clinicCard, isSelected && styles.clinicCardSelected]}
+        onPress={() => setSelectedClinic(isSelected ? null : item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.clinicCardContent}>
+          <Ionicons
+            name="business"
+            size={20}
+            color={isSelected ? COLORS.primary : COLORS.textMuted}
+          />
+          <View style={styles.clinicInfo}>
+            <Text style={[styles.clinicName, isSelected && styles.clinicNameSelected]}>{item.name}</Text>
+            <Text style={styles.clinicDoctor}>Dr. {item.doctorName}{item.doctorSpecialty ? ` - ${item.doctorSpecialty}` : ''}</Text>
+            {item.address ? <Text style={styles.clinicAddress}>{item.address}</Text> : null}
+          </View>
+          {isSelected && (
+            <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -68,7 +143,7 @@ export default function RegistrationScreen({ route }: Props): React.JSX.Element 
           <Text style={styles.subtitle}>
             {isDoctor
               ? 'Set up your doctor profile and clinic to get started'
-              : 'Tell us your name to get started'}
+              : 'Fill in your details and optionally select a clinic to join'}
           </Text>
         </View>
 
@@ -85,7 +160,7 @@ export default function RegistrationScreen({ route }: Props): React.JSX.Element 
             />
           </View>
 
-          {isDoctor && (
+          {isDoctor ? (
             <>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Specialty</Text>
@@ -120,6 +195,95 @@ export default function RegistrationScreen({ route }: Props): React.JSX.Element 
                 />
               </View>
             </>
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Qualification</Text>
+                <TextInput
+                  style={styles.input}
+                  value={qualification}
+                  onChangeText={setQualification}
+                  placeholder="e.g. ANM, GNM, BSc Nursing"
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, styles.rowHalf]}>
+                  <Text style={styles.label}>Experience (Years)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={experienceYears}
+                    onChangeText={setExperienceYears}
+                    placeholder="e.g. 3"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    maxLength={2}
+                  />
+                </View>
+                <View style={[styles.inputGroup, styles.rowHalf]}>
+                  <Text style={styles.label}>City</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={city}
+                    onChangeText={setCity}
+                    placeholder="e.g. Mumbai"
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Address</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Your full address"
+                  placeholderTextColor={COLORS.textLight}
+                  multiline
+                  numberOfLines={2}
+                />
+              </View>
+
+              {/* Clinic Picker */}
+              <View style={styles.clinicSection}>
+                <Text style={styles.sectionTitle}>Select a Clinic (Optional)</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Choose a clinic to send a join request to the doctor
+                </Text>
+
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={18} color={COLORS.textLight} />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={clinicSearch}
+                    onChangeText={setClinicSearch}
+                    placeholder="Search clinics or doctor names..."
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                  {clinicSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setClinicSearch('')}>
+                      <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {loadingClinics ? (
+                  <ActivityIndicator style={styles.clinicLoader} color={COLORS.primary} />
+                ) : clinics.length === 0 ? (
+                  <Text style={styles.noClinics}>No clinics found. You can join later from the Connection screen.</Text>
+                ) : (
+                  <FlatList
+                    data={clinics}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderClinicCard}
+                    scrollEnabled={false}
+                    style={styles.clinicList}
+                  />
+                )}
+              </View>
+            </>
           )}
         </View>
 
@@ -148,11 +312,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: SPACING.xxl,
-    paddingTop: 80,
+    paddingTop: 60,
     paddingBottom: SPACING.xxxl,
   },
   header: {
-    marginBottom: SPACING.xxxl,
+    marginBottom: SPACING.xxl,
   },
   title: {
     fontSize: 26,
@@ -189,6 +353,101 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: SPACING.lg,
     backgroundColor: COLORS.surfaceSecondary,
+  },
+  textArea: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  rowHalf: {
+    flex: 1,
+  },
+  // Clinic picker
+  clinicSection: {
+    marginTop: SPACING.sm,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: SPACING.lg,
+    lineHeight: 18,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.surfaceSecondary,
+    marginBottom: SPACING.md,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.sm,
+  },
+  clinicList: {
+    maxHeight: 300,
+  },
+  clinicLoader: {
+    marginVertical: SPACING.xl,
+  },
+  noClinics: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    paddingVertical: SPACING.xl,
+    fontStyle: 'italic',
+  },
+  clinicCard: {
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+  },
+  clinicCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySurface,
+  },
+  clinicCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  clinicInfo: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  clinicName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  clinicNameSelected: {
+    color: COLORS.primary,
+  },
+  clinicDoctor: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  clinicAddress: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
   button: {
     backgroundColor: COLORS.primary,

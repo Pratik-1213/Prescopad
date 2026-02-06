@@ -16,4 +16,20 @@ export interface TeamMember {
   phone: string;
   role: 'doctor' | 'assistant';
   lastActiveAt?: string;
+  qualification?: string;
+  experienceYears?: number;
+  profileAddress?: string;
+  city?: string;
+  specialty?: string;
+  regNumber?: string;
+}
+
+export interface ClinicListItem {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  ownerId: string;
 }

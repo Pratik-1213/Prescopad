@@ -27,9 +27,11 @@ export type DoctorStackParamList = {
   Consult: { queueItem: QueueItem; patient: Patient };
   MedicinePicker: undefined;
   LabTestPicker: undefined;
-  PrescriptionPreview: { prescriptionId: string };
+  PrescriptionPreview: { prescriptionId: string; readOnly?: boolean };
   DigitalSignature: { prescriptionId: string };
   RxSuccess: { prescription: Prescription };
+  PatientHistory: { patientId: string; patientName: string };
+  EditPatient: { patientId: string };
   Connection: undefined;
 };
 
@@ -38,6 +40,7 @@ export type AssistantStackParamList = {
   AddPatientForm: undefined;
   PatientSearch: undefined;
   PatientDetail: { patientId: string };
+  PrescriptionView: { prescriptionId: string };
   QueueManagement: undefined;
   Connection: undefined;
 };

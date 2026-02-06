@@ -111,6 +111,46 @@ export async function joinClinic(req: AuthRequest, res: Response, next: NextFunc
   }
 }
 
+export async function listClinics(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { search } = req.query;
+    let clinics;
+
+    const baseQuery = `SELECT c.id, c.name, c.address, c.phone, c.owner_id,
+                               u.name AS doctor_name, u.specialty AS doctor_specialty
+                        FROM clinics c
+                        JOIN users u ON c.owner_id = u.id`;
+
+    if (search && (search as string).trim()) {
+      const pattern = `%${(search as string).trim()}%`;
+      clinics = await query<ClinicRow & { doctor_name: string; doctor_specialty: string }>(
+        `${baseQuery} WHERE c.name ILIKE $1 OR u.name ILIKE $1 ORDER BY c.name ASC LIMIT 50`,
+        [pattern]
+      );
+    } else {
+      clinics = await query<ClinicRow & { doctor_name: string; doctor_specialty: string }>(
+        `${baseQuery} ORDER BY c.name ASC LIMIT 50`,
+        []
+      );
+    }
+
+    res.json({
+      success: true,
+      clinics: clinics.map(c => ({
+        id: c.id,
+        name: c.name,
+        address: c.address,
+        phone: c.phone,
+        doctorName: (c as unknown as Record<string, string>).doctor_name || '',
+        doctorSpecialty: (c as unknown as Record<string, string>).doctor_specialty || '',
+        ownerId: c.owner_id,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getDoctorStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.clinicId) {

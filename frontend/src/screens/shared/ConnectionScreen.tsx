@@ -30,6 +30,9 @@ export default function ConnectionScreen(): React.JSX.Element {
   const [doctorCode, setDoctorCode] = useState('');
   const [requesting, setRequesting] = useState(false);
 
+  // Expanded member details
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     try {
       const [requests, members] = await Promise.all([
@@ -365,26 +368,106 @@ export default function ConnectionScreen(): React.JSX.Element {
   }
 
   function renderTeamMemberCard(member: TeamMember) {
+    const isExpanded = expandedMemberId === member.id;
+    const hasDetails = member.qualification || member.experienceYears || member.city || member.profileAddress || member.specialty || member.regNumber;
+
     return (
-      <View key={member.id} style={styles.memberCard}>
-        <View style={styles.memberAvatar}>
-          <Text style={styles.memberAvatarText}>
-            {member.name?.charAt(0)?.toUpperCase() || '?'}
-          </Text>
-        </View>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.name}</Text>
-          <Text style={styles.memberRole}>
-            {member.role === 'doctor' ? 'Doctor' : 'Assistant'} · {member.phone}
-          </Text>
-        </View>
-        {isDoctor && member.role === 'assistant' && (
-          <TouchableOpacity
-            style={styles.disconnectButton}
-            onPress={() => handleDisconnect(member.id, member.name)}
-          >
-            <Ionicons name="remove-circle-outline" size={22} color={COLORS.error} />
-          </TouchableOpacity>
+      <View key={member.id}>
+        <TouchableOpacity
+          style={[styles.memberCard, isExpanded && styles.memberCardExpanded]}
+          onPress={() => setExpandedMemberId(isExpanded ? null : member.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.memberAvatar}>
+            <Text style={styles.memberAvatarText}>
+              {member.name?.charAt(0)?.toUpperCase() || '?'}
+            </Text>
+          </View>
+          <View style={styles.memberInfo}>
+            <Text style={styles.memberName}>{member.name}</Text>
+            <Text style={styles.memberRole}>
+              {member.role === 'doctor' ? 'Doctor' : 'Assistant'} · {member.phone}
+            </Text>
+          </View>
+          {hasDetails && (
+            <Ionicons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={COLORS.textLight}
+            />
+          )}
+          {isDoctor && member.role === 'assistant' && (
+            <TouchableOpacity
+              style={styles.disconnectButton}
+              onPress={() => handleDisconnect(member.id, member.name)}
+            >
+              <Ionicons name="remove-circle-outline" size={22} color={COLORS.error} />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
+        {isExpanded && hasDetails && (
+          <View style={styles.memberDetails}>
+            {member.role === 'assistant' && (
+              <>
+                {member.qualification ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="school-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>Qualification:</Text>
+                    <Text style={styles.detailValue}>{member.qualification}</Text>
+                  </View>
+                ) : null}
+                {member.experienceYears ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="time-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>Experience:</Text>
+                    <Text style={styles.detailValue}>{member.experienceYears} years</Text>
+                  </View>
+                ) : null}
+                {member.city ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="location-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>City:</Text>
+                    <Text style={styles.detailValue}>{member.city}</Text>
+                  </View>
+                ) : null}
+                {member.profileAddress ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="home-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>Address:</Text>
+                    <Text style={styles.detailValue}>{member.profileAddress}</Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+            {member.role === 'doctor' && (
+              <>
+                {member.specialty ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="medkit-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>Specialty:</Text>
+                    <Text style={styles.detailValue}>{member.specialty}</Text>
+                  </View>
+                ) : null}
+                {member.regNumber ? (
+                  <View style={styles.detailRow}>
+                    <Ionicons name="document-text-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.detailLabel}>Reg No:</Text>
+                    <Text style={styles.detailValue}>{member.regNumber}</Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+            {member.lastActiveAt && (
+              <View style={styles.detailRow}>
+                <Ionicons name="pulse-outline" size={16} color={COLORS.textMuted} />
+                <Text style={styles.detailLabel}>Last active:</Text>
+                <Text style={styles.detailValue}>
+                  {new Date(member.lastActiveAt).toLocaleString()}
+                </Text>
+              </View>
+            )}
+          </View>
         )}
       </View>
     );
@@ -648,8 +731,41 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 2,
   },
+  memberCardExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+  },
   disconnectButton: {
     padding: SPACING.sm,
+  },
+
+  // Member Details (expanded)
+  memberDetails: {
+    backgroundColor: COLORS.surfaceSecondary,
+    borderBottomLeftRadius: RADIUS.lg,
+    borderBottomRightRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: COLORS.borderLight,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  detailValue: {
+    fontSize: 13,
+    color: COLORS.text,
+    flex: 1,
   },
 
   // Empty State

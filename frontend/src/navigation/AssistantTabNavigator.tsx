@@ -13,6 +13,7 @@ import PatientDetailScreen from '../screens/assistant/PatientDetailScreen';
 // Shared screens
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import ConnectionScreen from '../screens/shared/ConnectionScreen';
+import PrescriptionViewScreen from '../screens/shared/PrescriptionViewScreen';
 
 const Tab = createBottomTabNavigator();
 const QueueStack = createNativeStackNavigator();
@@ -25,6 +26,7 @@ function AssistantQueueStack(): React.JSX.Element {
       <QueueStack.Screen name="AssistantDashboard" component={AssistantDashboard} />
       <QueueStack.Screen name="PatientSearch" component={PatientSearchScreen} options={{ headerShown: false }} />
       <QueueStack.Screen name="PatientDetail" component={PatientDetailScreen} options={{ headerShown: false }} />
+      <QueueStack.Screen name="PrescriptionView" component={PrescriptionViewScreen} options={{ headerShown: false }} />
     </QueueStack.Navigator>
   );
 }

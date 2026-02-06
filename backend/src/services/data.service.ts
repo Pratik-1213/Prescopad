@@ -366,6 +366,79 @@ export async function updateQueueStatus(
   return rows[0] ?? null;
 }
 
+export async function getQueueFiltered(
+  clinicId: string,
+  options: { status?: string; todayOnly?: boolean; limit?: number; offset?: number }
+): Promise<QueueRow[]> {
+  const conditions = ['sq.clinic_id = $1', 'sq.is_deleted = false'];
+  const params: unknown[] = [clinicId];
+  let paramIdx = 2;
+
+  if (options.todayOnly !== false) {
+    conditions.push(`DATE(sq.added_at) = CURRENT_DATE`);
+  }
+
+  if (options.status && options.status !== 'all') {
+    conditions.push(`sq.status = $${paramIdx++}`);
+    params.push(options.status);
+  }
+
+  const limit = options.limit ?? 200;
+  const offset = options.offset ?? 0;
+
+  return query<QueueRow>(
+    `SELECT sq.*,
+            sp.name AS patient_name,
+            sp.age AS patient_age,
+            sp.gender AS patient_gender,
+            sp.phone AS patient_phone,
+            sp.weight AS patient_weight,
+            sp.address AS patient_address,
+            sp.blood_group AS patient_blood_group,
+            sp.allergies AS patient_allergies
+     FROM queue sq
+     LEFT JOIN patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY sq.added_at DESC, sq.token_number ASC
+     LIMIT $${paramIdx++} OFFSET $${paramIdx}`,
+    [...params, limit, offset]
+  );
+}
+
+export async function getQueueStats(
+  clinicId: string,
+  todayOnly = true
+): Promise<QueueStats> {
+  const dateFilter = todayOnly ? `AND DATE(added_at) = CURRENT_DATE` : '';
+  const row = await queryOne<QueueStats>(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE status = 'waiting')::int AS waiting,
+       COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
+     FROM queue
+     WHERE clinic_id = $1 AND is_deleted = false ${dateFilter}`,
+    [clinicId]
+  );
+  return row ?? { total: 0, waiting: 0, in_progress: 0, completed: 0 };
+}
+
+export async function getQueueHistoryByPatient(
+  clinicId: string,
+  patientId: string
+): Promise<QueueRow[]> {
+  return query<QueueRow>(
+    `SELECT sq.*,
+            sp.name AS patient_name, sp.age AS patient_age,
+            sp.gender AS patient_gender, sp.phone AS patient_phone
+     FROM queue sq
+     LEFT JOIN patients sp ON sq.patient_id = sp.id AND sp.clinic_id = sq.clinic_id
+     WHERE sq.clinic_id = $1 AND sq.patient_id = $2 AND sq.is_deleted = false
+     ORDER BY sq.added_at DESC`,
+    [clinicId, patientId]
+  );
+}
+
 export async function removeFromQueue(
   clinicId: string,
   queueItemId: string
@@ -493,14 +566,33 @@ export async function finalizePrescription(
   pdfHash: string
 ): Promise<PrescriptionRow | null> {
   const now = new Date().toISOString();
-  const rows = await query<PrescriptionRow>(
-    `UPDATE prescriptions
-     SET status = 'finalized', signature = $1, pdf_hash = $2, wallet_deducted = 1, updated_at = $3
-     WHERE id = $4 AND clinic_id = $5
-     RETURNING *`,
-    [signature, pdfHash, now, prescriptionId, clinicId]
-  );
-  return rows[0] ?? null;
+
+  return transaction(async (client: PoolClient) => {
+    // Finalize the prescription
+    const rxResult = await client.query(
+      `UPDATE prescriptions
+       SET status = 'finalized', signature = $1, pdf_hash = $2, wallet_deducted = 1, updated_at = $3
+       WHERE id = $4 AND clinic_id = $5
+       RETURNING *`,
+      [signature, pdfHash, now, prescriptionId, clinicId]
+    );
+    if (rxResult.rows.length === 0) return null;
+    const rx = rxResult.rows[0] as PrescriptionRow;
+
+    // Auto-complete the active queue item for this patient today
+    await client.query(
+      `UPDATE queue
+       SET status = 'completed', completed_at = $1, updated_at = $1
+       WHERE clinic_id = $2
+         AND patient_id = $3
+         AND status = 'in_progress'
+         AND DATE(added_at) = CURRENT_DATE
+         AND is_deleted = false`,
+      [now, clinicId, rx.patient_id]
+    );
+
+    return rx;
+  });
 }
 
 export async function getTodayPrescriptionCount(clinicId: string): Promise<number> {

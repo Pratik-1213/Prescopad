@@ -241,7 +241,12 @@ export default function PatientDetailScreen(): React.JSX.Element {
             </View>
           ) : (
             prescriptions.map((rx) => (
-              <View key={rx.id} style={styles.rxCard}>
+              <TouchableOpacity
+                key={rx.id}
+                style={styles.rxCard}
+                onPress={() => navigation.navigate('PrescriptionView', { prescriptionId: rx.id })}
+                activeOpacity={0.7}
+              >
                 <View style={styles.rxCardHeader}>
                   <View style={styles.rxIdBadge}>
                     <Text style={styles.rxIdText}>{rx.id}</Text>
@@ -296,7 +301,7 @@ export default function PatientDetailScreen(): React.JSX.Element {
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>

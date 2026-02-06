@@ -23,6 +23,12 @@ interface TeamMemberRow {
   phone: string;
   role: string;
   last_active_at: string | null;
+  qualification: string | null;
+  experience_years: number | null;
+  profile_address: string | null;
+  city: string | null;
+  specialty: string | null;
+  reg_number: string | null;
 }
 
 export async function inviteAssistant(
@@ -174,9 +180,14 @@ export async function getPendingRequests(
 
 export async function getTeamMembers(clinicId: string): Promise<TeamMemberRow[]> {
   return query<TeamMemberRow>(
-    `SELECT id, name, phone, role, last_active_at
-     FROM users WHERE clinic_id = $1 AND is_active = true
-     ORDER BY role DESC, name ASC`,
+    `SELECT u.id, u.name, u.phone, u.role, u.last_active_at,
+            ap.qualification, ap.experience_years, ap.address AS profile_address, ap.city,
+            dp.specialty, dp.reg_number
+     FROM users u
+     LEFT JOIN assistant_profiles ap ON u.id = ap.user_id AND u.role = 'assistant'
+     LEFT JOIN doctor_profiles dp ON u.id = dp.user_id AND u.role = 'doctor'
+     WHERE u.clinic_id = $1 AND u.is_active = true
+     ORDER BY u.role DESC, u.name ASC`,
     [clinicId]
   );
 }

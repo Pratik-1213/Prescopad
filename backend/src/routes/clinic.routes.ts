@@ -6,6 +6,9 @@ const router = Router();
 
 router.use(authenticate);
 
+// List all clinics (for assistant registration)
+router.get('/list', ClinicController.listClinics);
+
 // Get clinic details
 router.get('/', ClinicController.getClinic);
 

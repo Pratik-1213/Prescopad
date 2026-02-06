@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { QueueItem, QueueStatus } from '../types/queue.types';
 import * as DataService from '../services/dataService';
 
+interface QueueFilter {
+  status?: string;
+  todayOnly: boolean;
+}
+
 interface QueueStore {
   queueItems: QueueItem[];
   activeItem: QueueItem | null;
@@ -9,9 +14,13 @@ interface QueueStore {
   isLoading: boolean;
   doctorReady: boolean;
   pollInterval: ReturnType<typeof setInterval> | null;
+  filter: QueueFilter;
 
   loadQueue: () => Promise<void>;
   loadStats: () => Promise<void>;
+  loadQueueFiltered: (filter?: QueueFilter) => Promise<void>;
+  loadStatsFiltered: (todayOnly?: boolean) => Promise<void>;
+  setFilter: (filter: QueueFilter) => void;
   addToQueue: (patientId: string, addedBy: string, notes?: string) => Promise<QueueItem>;
   startConsult: (queueItemId: string) => Promise<void>;
   completeConsult: (queueItemId: string) => Promise<void>;
@@ -30,6 +39,7 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
   isLoading: false,
   doctorReady: false,
   pollInterval: null,
+  filter: { todayOnly: true },
 
   loadQueue: async () => {
     try {
@@ -48,6 +58,36 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
     } catch {
       // keep existing stats on error
     }
+  },
+
+  loadQueueFiltered: async (filterOverride) => {
+    try {
+      const f = filterOverride || get().filter;
+      const queueItems = await DataService.getQueueFiltered({
+        status: f.status,
+        todayOnly: f.todayOnly,
+      });
+      const activeItem = queueItems.find((q) => q.status === QueueStatus.IN_PROGRESS) ?? null;
+      set({ queueItems, activeItem });
+    } catch {
+      // keep existing data on error
+    }
+  },
+
+  loadStatsFiltered: async (todayOnly) => {
+    try {
+      const t = todayOnly ?? get().filter.todayOnly;
+      const stats = await DataService.getQueueStatsFiltered(t);
+      set({ stats });
+    } catch {
+      // keep existing stats on error
+    }
+  },
+
+  setFilter: (filter) => {
+    set({ filter });
+    get().loadQueueFiltered(filter);
+    get().loadStatsFiltered(filter.todayOnly);
   },
 
   addToQueue: async (patientId, addedBy, notes) => {

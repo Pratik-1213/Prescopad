@@ -38,6 +38,11 @@ export async function completeRegistration(data: {
   specialty?: string;
   regNumber?: string;
   clinicName?: string;
+  qualification?: string;
+  experienceYears?: number;
+  address?: string;
+  city?: string;
+  selectedClinicId?: string;
 }): Promise<AuthResponse> {
   const response = await api.post('/auth/complete-registration', data);
   return response.data;

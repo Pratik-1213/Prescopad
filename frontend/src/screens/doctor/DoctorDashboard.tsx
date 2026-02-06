@@ -30,10 +30,12 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   const user = useAuthStore((s) => s.user);
   const clinic = useClinicStore((s) => s.clinic);
   const doctorProfile = useClinicStore((s) => s.doctorProfile);
-  const { queueItems, stats, isLoading, loadQueue, loadStats, startConsult, startPolling, stopPolling } = useQueueStore();
+  const { queueItems, stats, isLoading, loadQueueFiltered, loadStatsFiltered, startConsult, startPolling, stopPolling } = useQueueStore();
   const { balance, loadBalance } = useWalletStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'waiting' | 'in_progress' | 'completed'>('all');
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Send heartbeat every 60 seconds while app is active
@@ -68,12 +70,14 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   }, []);
 
   const loadData = useCallback(async () => {
+    const todayOnly = !showAllHistory;
+    const status = activeTab === 'all' ? undefined : activeTab;
     await Promise.all([
-      loadQueue(),
-      loadStats(),
+      loadQueueFiltered({ status, todayOnly }),
+      loadStatsFiltered(todayOnly),
       loadBalance(),
     ]);
-  }, [loadQueue, loadStats, loadBalance]);
+  }, [loadQueueFiltered, loadStatsFiltered, loadBalance, showAllHistory, activeTab]);
 
   // Start queue polling on focus, stop on blur
   useFocusEffect(
@@ -90,8 +94,24 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
     setRefreshing(false);
   };
 
+  const handleTabChange = (tab: 'all' | 'waiting' | 'in_progress' | 'completed') => {
+    setActiveTab(tab);
+  };
+
+  const handleToggleHistory = () => {
+    setShowAllHistory((prev) => !prev);
+  };
+
+  // Re-load when filter or history toggle changes
+  useEffect(() => {
+    loadData();
+  }, [activeTab, showAllHistory, loadData]);
+
   const handleStartConsult = async (item: QueueItem) => {
     if (item.status === QueueStatus.COMPLETED) {
+      if (item.patient) {
+        navigation.navigate('PatientHistory', { patientId: item.patient.id, patientName: item.patient.name });
+      }
       return;
     }
     if (!item.patient) {
@@ -146,7 +166,8 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
 
   const renderQueueItem = ({ item }: { item: QueueItem }) => {
     const statusColor = getStatusColor(item.status);
-    const isActionable = item.status === QueueStatus.WAITING || item.status === QueueStatus.IN_PROGRESS;
+    const isTappable = item.status !== QueueStatus.CANCELLED;
+    const isActive = item.status === QueueStatus.WAITING || item.status === QueueStatus.IN_PROGRESS;
     const patientName = item.patient?.name || 'Unknown Patient';
     const patientAge = item.patient?.age ?? '--';
     const patientGender = item.patient?.gender
@@ -155,10 +176,10 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
 
     return (
       <TouchableOpacity
-        style={[styles.queueCard, isActionable && styles.queueCardActive]}
-        onPress={() => isActionable && handleStartConsult(item)}
-        activeOpacity={isActionable ? 0.7 : 1}
-        disabled={!isActionable}
+        style={[styles.queueCard, isActive && styles.queueCardActive]}
+        onPress={() => isTappable && handleStartConsult(item)}
+        activeOpacity={isTappable ? 0.7 : 1}
+        disabled={!isTappable}
       >
         <View style={styles.queueCardLeft}>
           <View style={[styles.tokenBadge, { backgroundColor: statusColor }]}>
@@ -187,7 +208,7 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
               {getStatusLabel(item.status)}
             </Text>
           </View>
-          {isActionable && (
+          {isTappable && (
             <Ionicons
               name="chevron-forward"
               size={18}
@@ -255,12 +276,41 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
         </View>
       </View>
 
-      {/* Queue Title */}
+      {/* Queue Title + History Toggle */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Patient Queue</Text>
-        <Text style={styles.sectionCount}>
-          {stats.waiting} waiting
-        </Text>
+        <TouchableOpacity style={styles.historyToggle} onPress={handleToggleHistory}>
+          <Ionicons name={showAllHistory ? 'calendar' : 'time-outline'} size={16} color={COLORS.primary} />
+          <Text style={styles.historyToggleText}>
+            {showAllHistory ? 'All History' : 'Today'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        {([
+          { key: 'all' as const, label: 'All', count: stats.total },
+          { key: 'waiting' as const, label: 'Waiting', count: stats.waiting },
+          { key: 'in_progress' as const, label: 'In Progress', count: stats.inProgress },
+          { key: 'completed' as const, label: 'Done', count: stats.completed },
+        ]).map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.filterTab, activeTab === tab.key && styles.filterTabActive]}
+            onPress={() => handleTabChange(tab.key)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.filterTabText, activeTab === tab.key && styles.filterTabTextActive]}>
+              {tab.label}
+            </Text>
+            <View style={[styles.filterTabBadge, activeTab === tab.key && styles.filterTabBadgeActive]}>
+              <Text style={[styles.filterTabBadgeText, activeTab === tab.key && styles.filterTabBadgeTextActive]}>
+                {tab.count}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -442,6 +492,68 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.primary,
+  },
+  historyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primarySurface,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: RADIUS.full,
+    gap: SPACING.xs,
+  },
+  historyToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  // Filter Tabs
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceSecondary,
+    gap: 4,
+  },
+  filterTabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  filterTabText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  filterTabTextActive: {
+    color: COLORS.white,
+  },
+  filterTabBadge: {
+    backgroundColor: COLORS.border,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: RADIUS.full,
+    minWidth: 18,
+    alignItems: 'center',
+  },
+  filterTabBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  filterTabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  filterTabBadgeTextActive: {
+    color: COLORS.white,
   },
 
   // Queue Cards
