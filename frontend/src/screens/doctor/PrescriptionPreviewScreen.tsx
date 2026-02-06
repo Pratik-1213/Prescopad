@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
@@ -18,10 +19,12 @@ import { useClinicStore } from '../../store/useClinicStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { generatePrescriptionPDF } from '../../services/pdfService';
 import { hashPDF } from '../../services/cryptoService';
-import { Prescription } from '../../types/prescription.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
-export default function PrescriptionPreviewScreen({ navigation, route }: any): React.JSX.Element {
-  const prescriptionId = route.params?.prescriptionId as string;
+type Props = NativeStackScreenProps<DoctorStackParamList, 'PrescriptionPreview'>;
+
+export default function PrescriptionPreviewScreen({ navigation, route }: Props): React.JSX.Element {
+  const prescriptionId = route.params.prescriptionId;
   const { currentPrescription, loadPrescription, finalizePrescription } = usePrescriptionStore();
   const { canAfford, deductForPrescription, balance } = useWalletStore();
   const { clinic, doctorProfile } = useClinicStore();
@@ -60,7 +63,7 @@ export default function PrescriptionPreviewScreen({ navigation, route }: any): R
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Recharge',
-              onPress: () => navigation.navigate('Wallet'),
+              onPress: () => navigation.getParent()?.navigate('DoctorWallet'),
             },
           ],
         );
@@ -84,8 +87,9 @@ export default function PrescriptionPreviewScreen({ navigation, route }: any): R
       // Step 6: Navigate to success
       const updatedRx = usePrescriptionStore.getState().currentPrescription;
       navigation.replace('RxSuccess', { prescription: updatedRx || rx });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to issue prescription');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to issue prescription';
+      Alert.alert('Error', msg);
     } finally {
       setIsSigning(false);
     }

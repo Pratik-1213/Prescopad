@@ -18,14 +18,20 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { ConnectionStatus, PairingData } from '../../types/sync.types';
 import { UserRole } from '../../types/auth.types';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ParamListBase } from '@react-navigation/native';
+import api, { isOnline } from '../../services/api';
 import {
   generatePairingQR,
   serializePairingData,
   getLocalIPAddress,
-  parsePairingQR,
 } from '../../services/sync/pairingService';
 
-export default function PairingScreen({ navigation }: any): React.JSX.Element {
+interface PairingScreenProps {
+  navigation: NativeStackNavigationProp<ParamListBase>;
+}
+
+export default function PairingScreen({ navigation }: PairingScreenProps): React.JSX.Element {
   const { user } = useAuthStore();
   const {
     connectionStatus,
@@ -38,30 +44,44 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
   const isDoctor = user?.role === UserRole.DOCTOR;
   const [pairingData, setPairingData] = useState<PairingData | null>(null);
   const [qrValue, setQrValue] = useState('');
-  const [ipInput, setIpInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     if (isDoctor) {
       generateQRData();
     }
+    checkCloudConnection();
   }, [isDoctor]);
 
-  const generateQRData = () => {
-    const ipAddress = getLocalIPAddress();
+  const generateQRData = async () => {
+    const ipAddress = await getLocalIPAddress();
     const data = generatePairingQR(
       user?.name || 'Doctor Device',
       UserRole.DOCTOR,
       user?.clinicId || '',
       ipAddress,
+      user?.phone,
     );
     setPairingData(data);
     setQrValue(serializePairingData(data));
   };
 
+  const checkCloudConnection = async () => {
+    try {
+      const online = await isOnline();
+      if (online && user?.clinicId) {
+        setConnectionStatus(ConnectionStatus.CONNECTED);
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Assistant joins doctor's clinic via cloud
   const handleConnect = async () => {
-    if (!ipInput.trim()) {
-      Alert.alert('Required', 'Please enter the doctor device IP address');
+    if (!phoneInput.trim()) {
+      Alert.alert('Required', 'Please enter the doctor\'s phone number');
       return;
     }
 
@@ -69,25 +89,46 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
     setConnectionStatus(ConnectionStatus.CONNECTING);
 
     try {
-      // Simulate connection attempt
-      // In production, this would use WebSocket connection via lanSync
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const online = await isOnline();
+      if (!online) {
+        throw new Error('Backend server is not reachable. Check your internet connection.');
+      }
 
-      const device: PairingData = {
-        deviceId: 'doctor-device',
-        deviceName: 'Doctor Device',
-        ipAddress: ipInput.trim(),
-        port: 8765,
-        role: UserRole.DOCTOR,
-        clinicId: user?.clinicId || '',
-      };
+      const response = await api.post('/clinic/join', {
+        doctorPhone: phoneInput.trim(),
+      });
 
-      setPairedDevice(device);
-      setConnectionStatus(ConnectionStatus.CONNECTED);
-      Alert.alert('Connected', `Successfully paired with ${device.deviceName}`);
-    } catch (error: any) {
+      if (response.data.clinic) {
+        const device: PairingData = {
+          deviceId: 'cloud-paired',
+          deviceName: response.data.clinic.name || 'Doctor\'s Clinic',
+          ipAddress: 'cloud',
+          port: 0,
+          role: UserRole.DOCTOR,
+          clinicId: response.data.clinic.id,
+        };
+
+        setPairedDevice(device);
+        setConnectionStatus(ConnectionStatus.CONNECTED);
+
+        // Update user's clinicId in local store
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          const updatedUser = { ...currentUser, clinicId: response.data.clinic.id };
+          const token = useAuthStore.getState().accessToken || '';
+          const refreshToken = useAuthStore.getState().refreshToken || '';
+          await useAuthStore.getState().setUser(updatedUser, token, refreshToken);
+        }
+
+        Alert.alert('Paired!', `Joined clinic: ${response.data.clinic.name || 'Doctor\'s Clinic'}`);
+      }
+    } catch (error: unknown) {
       setConnectionStatus(ConnectionStatus.ERROR);
-      Alert.alert('Error', error.message || 'Failed to connect. Please try again.');
+      let msg = 'Failed to connect. Please try again.';
+      if (error instanceof Error) msg = error.message;
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      if (axiosErr.response?.data?.error) msg = axiosErr.response.data.error;
+      Alert.alert('Error', msg);
     } finally {
       setIsConnecting(false);
     }
@@ -102,9 +143,7 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
         {
           text: 'Disconnect',
           style: 'destructive',
-          onPress: () => {
-            disconnect();
-          },
+          onPress: () => disconnect(),
         },
       ],
     );
@@ -113,46 +152,34 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
   const handleScanQR = () => {
     Alert.alert(
       'Scan QR Code',
-      'Camera-based QR scanning will be available in a future update. Please enter the IP address manually for now.',
+      'Camera-based QR scanning will be available in a future update. Please enter the doctor\'s phone number manually for now.',
     );
   };
 
   const getStatusColor = (): string => {
     switch (connectionStatus) {
-      case ConnectionStatus.CONNECTED:
-        return COLORS.success;
-      case ConnectionStatus.CONNECTING:
-        return COLORS.warning;
-      case ConnectionStatus.ERROR:
-        return COLORS.error;
-      default:
-        return COLORS.textLight;
+      case ConnectionStatus.CONNECTED: return COLORS.success;
+      case ConnectionStatus.CONNECTING: return COLORS.warning;
+      case ConnectionStatus.ERROR: return COLORS.error;
+      default: return COLORS.textLight;
     }
   };
 
   const getStatusLabel = (): string => {
     switch (connectionStatus) {
-      case ConnectionStatus.CONNECTED:
-        return 'Connected';
-      case ConnectionStatus.CONNECTING:
-        return 'Connecting...';
-      case ConnectionStatus.ERROR:
-        return 'Connection Error';
-      default:
-        return 'Disconnected';
+      case ConnectionStatus.CONNECTED: return 'Connected';
+      case ConnectionStatus.CONNECTING: return 'Connecting...';
+      case ConnectionStatus.ERROR: return 'Connection Error';
+      default: return 'Not Paired';
     }
   };
 
   const getStatusIcon = (): keyof typeof Ionicons.glyphMap => {
     switch (connectionStatus) {
-      case ConnectionStatus.CONNECTED:
-        return 'checkmark-circle';
-      case ConnectionStatus.CONNECTING:
-        return 'sync';
-      case ConnectionStatus.ERROR:
-        return 'alert-circle';
-      default:
-        return 'remove-circle-outline';
+      case ConnectionStatus.CONNECTED: return 'checkmark-circle';
+      case ConnectionStatus.CONNECTING: return 'sync';
+      case ConnectionStatus.ERROR: return 'alert-circle';
+      default: return 'remove-circle-outline';
     }
   };
 
@@ -181,17 +208,15 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
           </View>
           {pairedDevice && connectionStatus === ConnectionStatus.CONNECTED ? (
             <View style={styles.pairedInfo}>
-              <Text style={styles.pairedDeviceName}>
-                {pairedDevice.deviceName}
-              </Text>
+              <Text style={styles.pairedDeviceName}>{pairedDevice.deviceName}</Text>
               <Text style={styles.pairedDeviceIp}>
-                {pairedDevice.ipAddress}:{pairedDevice.port}
+                Clinic ID: {pairedDevice.clinicId ? pairedDevice.clinicId.slice(0, 8) + '...' : 'N/A'}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* Doctor View - Show QR Code */}
+        {/* Doctor View - Show Phone + QR */}
         {isDoctor ? (
           <View style={styles.roleSection}>
             <View style={styles.roleBanner}>
@@ -200,16 +225,30 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
             </View>
 
             <View style={styles.qrCard}>
-              <Text style={styles.qrTitle}>Scan to Pair</Text>
+              <Text style={styles.qrTitle}>Pair Assistant</Text>
               <Text style={styles.qrSubtitle}>
-                Show this QR code to the assistant device
+                Share your phone number or QR code with the assistant
               </Text>
+
+              <View style={styles.phoneDisplay}>
+                <Ionicons name="call" size={20} color={COLORS.primary} />
+                <Text style={styles.phoneValue}>{user?.phone || 'N/A'}</Text>
+              </View>
+              <Text style={styles.phoneHint}>
+                Assistant enters this number to join your clinic
+              </Text>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR SCAN QR</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
               {qrValue ? (
                 <View style={styles.qrWrapper}>
                   <QRCode
                     value={qrValue}
-                    size={200}
+                    size={180}
                     color={COLORS.text}
                     backgroundColor={COLORS.white}
                   />
@@ -220,29 +259,21 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
 
               <View style={styles.ipDisplay}>
                 <Ionicons name="wifi" size={18} color={COLORS.primary} />
-                <Text style={styles.ipLabel}>Device IP Address</Text>
+                <Text style={styles.ipLabel}>LAN IP</Text>
               </View>
               <Text style={styles.ipValue}>
-                {pairingData?.ipAddress || 'Detecting...'}:{pairingData?.port || ''}
-              </Text>
-
-              <Text style={styles.instructionText}>
-                Open PrescoPad on the assistant device and scan this code, or enter the IP address manually.
+                {pairingData?.ipAddress || 'Detecting...'}
               </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.refreshBtn}
-              onPress={generateQRData}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.refreshBtn} onPress={generateQRData} activeOpacity={0.7}>
               <Ionicons name="refresh" size={18} color={COLORS.primary} />
-              <Text style={styles.refreshBtnText}>Regenerate QR Code</Text>
+              <Text style={styles.refreshBtnText}>Refresh IP</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
-        {/* Assistant View - Input or Scan */}
+        {/* Assistant View - Enter Doctor Phone */}
         {!isDoctor ? (
           <View style={styles.roleSection}>
             <View style={styles.roleBanner}>
@@ -253,16 +284,12 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
             </View>
 
             <View style={styles.connectCard}>
-              <Text style={styles.connectTitle}>Connect to Doctor</Text>
+              <Text style={styles.connectTitle}>Join Doctor's Clinic</Text>
               <Text style={styles.connectSubtitle}>
-                Enter the doctor device IP address or scan the QR code
+                Enter the doctor's phone number to pair and sync data through the cloud
               </Text>
 
-              <TouchableOpacity
-                style={styles.scanQRBtn}
-                onPress={handleScanQR}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.scanQRBtn} onPress={handleScanQR} activeOpacity={0.7}>
                 <Ionicons name="qr-code-outline" size={24} color={COLORS.primary} />
                 <Text style={styles.scanQRBtnText}>Scan QR Code</Text>
               </TouchableOpacity>
@@ -273,24 +300,22 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Text style={styles.inputLabel}>Doctor Device IP Address</Text>
+              <Text style={styles.inputLabel}>Doctor's Phone Number</Text>
               <TextInput
-                style={styles.ipInput}
-                value={ipInput}
-                onChangeText={setIpInput}
-                placeholder="e.g., 192.168.1.100"
+                style={styles.phoneInput}
+                value={phoneInput}
+                onChangeText={setPhoneInput}
+                placeholder="e.g., 9876543210"
                 placeholderTextColor={COLORS.textLight}
-                keyboardType="decimal-pad"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
+                maxLength={10}
               />
 
               <TouchableOpacity
-                style={[
-                  styles.connectBtn,
-                  (!ipInput.trim() || isConnecting) && styles.buttonDisabled,
-                ]}
+                style={[styles.connectBtn, (!phoneInput.trim() || isConnecting) && styles.buttonDisabled]}
                 onPress={handleConnect}
-                disabled={!ipInput.trim() || isConnecting}
+                disabled={!phoneInput.trim() || isConnecting}
                 activeOpacity={0.8}
               >
                 {isConnecting ? (
@@ -298,7 +323,7 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
                 ) : (
                   <>
                     <Ionicons name="link" size={20} color={COLORS.white} />
-                    <Text style={styles.connectBtnText}>Connect</Text>
+                    <Text style={styles.connectBtnText}>Join Clinic</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -308,11 +333,7 @@ export default function PairingScreen({ navigation }: any): React.JSX.Element {
 
         {/* Disconnect Button */}
         {connectionStatus === ConnectionStatus.CONNECTED ? (
-          <TouchableOpacity
-            style={styles.disconnectBtn}
-            onPress={handleDisconnect}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.disconnectBtn} onPress={handleDisconnect} activeOpacity={0.7}>
             <Ionicons name="unlink" size={20} color={COLORS.error} />
             <Text style={styles.disconnectBtnText}>Disconnect</Text>
           </TouchableOpacity>
@@ -433,6 +454,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
+  phoneDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  phoneValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    letterSpacing: 1,
+  },
+  phoneHint: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
   qrWrapper: {
     padding: SPACING.lg,
     backgroundColor: COLORS.white,
@@ -453,17 +497,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   ipValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.primary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginBottom: SPACING.lg,
-  },
-  instructionText: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    lineHeight: 18,
   },
   refreshBtn: {
     flexDirection: 'row',
@@ -536,17 +573,18 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
   },
-  ipInput: {
+  phoneInput: {
     borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.text,
     backgroundColor: COLORS.surfaceSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginBottom: SPACING.lg,
+    letterSpacing: 1,
   },
   connectBtn: {
     flexDirection: 'row',

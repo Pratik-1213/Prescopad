@@ -57,6 +57,60 @@ export async function getClinic(req: AuthRequest, res: Response, next: NextFunct
   }
 }
 
+export async function joinClinic(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (req.userRole !== 'assistant') {
+      throw new AppError('Only assistants can join a clinic', 403);
+    }
+
+    const { doctorPhone } = req.body;
+    if (!doctorPhone) {
+      throw new AppError('Doctor phone number is required', 400);
+    }
+
+    // Find the doctor
+    const doctor = await queryOne<{ id: string; clinic_id: string | null }>(
+      `SELECT id, clinic_id FROM users WHERE phone = $1 AND role = 'doctor'`,
+      [doctorPhone]
+    );
+
+    if (!doctor) {
+      throw new AppError('No doctor found with this phone number', 404);
+    }
+
+    if (!doctor.clinic_id) {
+      throw new AppError('Doctor does not have a clinic yet', 400);
+    }
+
+    // Link assistant to doctor's clinic
+    await query(
+      `UPDATE users SET clinic_id = $1 WHERE id = $2`,
+      [doctor.clinic_id, req.userId]
+    );
+
+    const clinic = await queryOne<ClinicRow>(
+      `SELECT * FROM clinics WHERE id = $1`,
+      [doctor.clinic_id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Joined clinic successfully',
+      clinicId: doctor.clinic_id,
+      clinic: clinic ? {
+        id: clinic.id,
+        name: clinic.name,
+        address: clinic.address,
+        phone: clinic.phone,
+        email: clinic.email,
+        logoUrl: clinic.logo_url,
+      } : null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createOrUpdateClinic(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (req.userRole !== 'doctor') {

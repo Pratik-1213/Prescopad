@@ -13,10 +13,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ParamListBase } from '@react-navigation/native';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { useClinicStore } from '../../store/useClinicStore';
 
-export default function ClinicProfileScreen({ navigation }: any): React.JSX.Element {
+interface ClinicProfileScreenProps {
+  navigation: NativeStackNavigationProp<ParamListBase>;
+}
+
+export default function ClinicProfileScreen({ navigation }: ClinicProfileScreenProps): React.JSX.Element {
   const {
     clinic,
     doctorProfile,
@@ -86,8 +92,9 @@ export default function ClinicProfileScreen({ navigation }: any): React.JSX.Elem
       Alert.alert('Saved', 'Clinic profile updated successfully', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save profile');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to save profile';
+      Alert.alert('Error', msg);
     } finally {
       setIsSaving(false);
     }

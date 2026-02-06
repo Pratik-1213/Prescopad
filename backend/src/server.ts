@@ -10,13 +10,16 @@ import authRoutes from './routes/auth.routes';
 import walletRoutes from './routes/wallet.routes';
 import clinicRoutes from './routes/clinic.routes';
 import notificationRoutes from './routes/notification.routes';
+import syncRoutes from './routes/sync.routes';
 
 const app = express();
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: '*', // In production, restrict to app domain
+  origin: ENV.isDev
+    ? '*'
+    : (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -47,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Error handling
 app.use(notFound);

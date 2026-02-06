@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
+import { AuthStackParamList } from '../../types/navigation.types';
 
-export default function LandingScreen({ navigation }: any): React.JSX.Element {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Landing'>;
+
+export default function LandingScreen({ navigation }: Props): React.JSX.Element {
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor={COLORS.primary} barStyle="light-content" />

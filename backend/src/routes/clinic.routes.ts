@@ -12,4 +12,7 @@ router.get('/', ClinicController.getClinic);
 // Create or update clinic (doctor only)
 router.put('/', ClinicController.createOrUpdateClinic);
 
+// Join a clinic (assistant only - provide doctor's phone)
+router.post('/join', ClinicController.joinClinic);
+
 export default router;

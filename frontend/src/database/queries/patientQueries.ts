@@ -7,8 +7,8 @@ export async function createPatient(data: PatientFormData): Promise<Patient> {
   const now = new Date().toISOString();
 
   await db.runAsync(
-    `INSERT INTO patients (id, name, age, gender, weight, phone, address, blood_group, allergies, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO patients (id, name, age, gender, weight, phone, address, blood_group, allergies, created_at, updated_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     [
       id,
       data.name.trim(),
@@ -24,7 +24,11 @@ export async function createPatient(data: PatientFormData): Promise<Patient> {
     ]
   );
 
-  return getPatientById(id) as Promise<Patient>;
+  const patient = await getPatientById(id);
+  if (!patient) {
+    throw new Error('Failed to create patient: record not found after insert');
+  }
+  return patient;
 }
 
 export async function getPatientById(id: string): Promise<Patient | null> {
@@ -72,6 +76,7 @@ export async function updatePatient(id: string, data: Partial<PatientFormData>):
   if (fields.length === 0) return;
 
   fields.push("updated_at = datetime('now')");
+  fields.push('synced = 0');
   values.push(id);
 
   await db.runAsync(
@@ -97,6 +102,7 @@ export async function getRecentPatients(limit = 10): Promise<Patient[]> {
   return rows.map(mapPatientRow);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapPatientRow(row: any): Patient {
   return {
     id: row.id as string,

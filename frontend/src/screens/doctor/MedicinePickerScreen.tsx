@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
 import {
@@ -28,10 +29,9 @@ import {
   TIMING_OPTIONS,
   DURATION_OPTIONS,
 } from '../../types/medicine.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
-interface MedicinePickerScreenProps {
-  navigation: any;
-}
+type MedicinePickerScreenProps = NativeStackScreenProps<DoctorStackParamList, 'MedicinePicker'>;
 
 export default function MedicinePickerScreen({ navigation }: MedicinePickerScreenProps): React.JSX.Element {
   const addMedicine = usePrescriptionStore((s) => s.addMedicine);
@@ -183,8 +183,9 @@ export default function MedicinePickerScreen({ navigation }: MedicinePickerScree
       });
 
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add custom medicine');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to add custom medicine';
+      Alert.alert('Error', msg);
     }
   };
 

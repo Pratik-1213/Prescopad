@@ -23,8 +23,8 @@ function AssistantQueueStack(): React.JSX.Element {
   return (
     <QueueStack.Navigator screenOptions={{ headerShown: false }}>
       <QueueStack.Screen name="AssistantDashboard" component={AssistantDashboard} />
-      <QueueStack.Screen name="PatientSearch" component={PatientSearchScreen} options={{ headerShown: true, title: 'Search Patient' }} />
-      <QueueStack.Screen name="PatientDetail" component={PatientDetailScreen} options={{ headerShown: true, title: 'Patient Details' }} />
+      <QueueStack.Screen name="PatientSearch" component={PatientSearchScreen} options={{ headerShown: false }} />
+      <QueueStack.Screen name="PatientDetail" component={PatientDetailScreen} options={{ headerShown: false }} />
     </QueueStack.Navigator>
   );
 }
@@ -33,7 +33,7 @@ function AssistantPatientStack(): React.JSX.Element {
   return (
     <PatientStack.Navigator screenOptions={{ headerShown: false }}>
       <PatientStack.Screen name="AddPatientForm" component={AddPatientScreen} />
-      <PatientStack.Screen name="PatientSearchNested" component={PatientSearchScreen} options={{ headerShown: true, title: 'Search Patient' }} />
+      <PatientStack.Screen name="PatientSearchNested" component={PatientSearchScreen} options={{ headerShown: false }} />
     </PatientStack.Navigator>
   );
 }
@@ -42,7 +42,7 @@ function AssistantSettingsStack(): React.JSX.Element {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: true, title: 'Pair Device' }} />
+      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: false }} />
     </SettingsStack.Navigator>
   );
 }

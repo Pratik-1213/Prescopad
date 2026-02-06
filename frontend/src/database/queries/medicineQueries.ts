@@ -28,8 +28,8 @@ export async function addCustomMedicine(
   const db = await getDatabase();
   const id = generateId();
   await db.runAsync(
-    `INSERT INTO medicines (id, name, type, strength, manufacturer, is_custom, usage_count)
-     VALUES (?, ?, ?, ?, '', 1, 1)`,
+    `INSERT INTO medicines (id, name, type, strength, manufacturer, is_custom, usage_count, synced, updated_at)
+     VALUES (?, ?, ?, ?, '', 1, 1, 0, datetime('now'))`,
     [id, name, type, strength]
   );
   return { id, name, type: type as Medicine['type'], strength, manufacturer: '', isCustom: true, usageCount: 1 };
@@ -75,8 +75,8 @@ export async function addCustomLabTest(name: string, category: string): Promise<
   const db = await getDatabase();
   const id = generateId();
   await db.runAsync(
-    `INSERT INTO lab_tests (id, name, category, is_custom, usage_count)
-     VALUES (?, ?, ?, 1, 1)`,
+    `INSERT INTO lab_tests (id, name, category, is_custom, usage_count, synced, updated_at)
+     VALUES (?, ?, ?, 1, 1, 0, datetime('now'))`,
     [id, name, category]
   );
   return { id, name, category, isCustom: true, usageCount: 1 };

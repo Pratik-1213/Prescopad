@@ -1,3 +1,4 @@
+import * as Network from 'expo-network';
 import { PairingData } from '../../types/sync.types';
 import { APP_CONFIG } from '../../constants/config';
 import { generateId } from '../../database/database';
@@ -7,7 +8,8 @@ export function generatePairingQR(
   deviceName: string,
   role: string,
   clinicId: string,
-  ipAddress: string
+  ipAddress: string,
+  doctorPhone?: string,
 ): PairingData {
   return {
     deviceId: generateId(),
@@ -16,6 +18,7 @@ export function generatePairingQR(
     port: APP_CONFIG.sync.port,
     role,
     clinicId,
+    doctorPhone,
   };
 }
 
@@ -37,9 +40,12 @@ export function serializePairingData(data: PairingData): string {
   return JSON.stringify(data);
 }
 
-// Get device's local IP address (simplified for React Native)
-// In production, use react-native-network-info or similar
-export function getLocalIPAddress(): string {
-  // Placeholder - in production, detect actual local IP
-  return '192.168.1.100';
+// Get device's local IP address using expo-network
+export async function getLocalIPAddress(): Promise<string> {
+  try {
+    const ip = await Network.getIpAddressAsync();
+    return ip;
+  } catch {
+    return 'Unable to detect';
+  }
 }

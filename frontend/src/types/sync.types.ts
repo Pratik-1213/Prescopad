@@ -24,6 +24,7 @@ export interface PairingData {
   port: number;
   role: string;
   clinicId: string;
+  doctorPhone?: string;
 }
 
 export enum ConnectionStatus {

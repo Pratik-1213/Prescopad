@@ -14,6 +14,8 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ParamListBase } from '@react-navigation/native';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
 import { useWalletStore } from '../../store/useWalletStore';
@@ -22,7 +24,11 @@ import * as walletService from '../../services/walletService';
 
 const RECHARGE_OPTIONS = [100, 500, 1000];
 
-export default function WalletScreen({ navigation }: any): React.JSX.Element {
+interface WalletScreenProps {
+  navigation: NativeStackNavigationProp<ParamListBase>;
+}
+
+export default function WalletScreen({ navigation }: WalletScreenProps): React.JSX.Element {
   const {
     balance,
     transactions,
@@ -100,8 +106,9 @@ export default function WalletScreen({ navigation }: any): React.JSX.Element {
       setShowRecharge(false);
       setCustomAmount('');
       Alert.alert('Success', `${APP_CONFIG.wallet.currencySymbol}${amount} added to your wallet`);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Recharge failed. Please try again.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Recharge failed. Please try again.';
+      Alert.alert('Error', msg);
     } finally {
       setIsRecharging(false);
     }
@@ -113,8 +120,9 @@ export default function WalletScreen({ navigation }: any): React.JSX.Element {
       const amount = parseInt(autoRefillAmount, 10) || APP_CONFIG.wallet.defaultRechargeAmount;
       await walletService.updateAutoRefill(autoRefill, amount, threshold);
       Alert.alert('Saved', 'Auto-refill settings updated');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update auto-refill');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to update auto-refill';
+      Alert.alert('Error', msg);
     }
   };
 

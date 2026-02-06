@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
+import { DoctorStackParamList } from '../types/navigation.types';
 
 // Doctor screens
 import DoctorDashboard from '../screens/doctor/DoctorDashboard';
@@ -19,7 +20,7 @@ import ClinicProfileScreen from '../screens/shared/ClinicProfileScreen';
 import PairingScreen from '../screens/shared/PairingScreen';
 
 const Tab = createBottomTabNavigator();
-const QueueStack = createNativeStackNavigator();
+const QueueStack = createNativeStackNavigator<DoctorStackParamList>();
 const WalletStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
@@ -27,12 +28,12 @@ function DoctorQueueStack(): React.JSX.Element {
   return (
     <QueueStack.Navigator screenOptions={{ headerShown: false }}>
       <QueueStack.Screen name="DoctorDashboard" component={DoctorDashboard} />
-      <QueueStack.Screen name="Consult" component={ConsultScreen as any} options={{ headerShown: true, title: 'Consultation' }} />
+      <QueueStack.Screen name="Consult" component={ConsultScreen} options={{ headerShown: true, title: 'Consultation' }} />
       <QueueStack.Screen name="MedicinePicker" component={MedicinePickerScreen} options={{ headerShown: true, title: 'Add Medicine' }} />
       <QueueStack.Screen name="LabTestPicker" component={LabTestPickerScreen} options={{ headerShown: true, title: 'Add Lab Test' }} />
-      <QueueStack.Screen name="PrescriptionPreview" component={PrescriptionPreviewScreen} options={{ headerShown: true, title: 'Preview' }} />
+      <QueueStack.Screen name="PrescriptionPreview" component={PrescriptionPreviewScreen} options={{ headerShown: false }} />
       <QueueStack.Screen name="RxSuccess" component={RxSuccessScreen} options={{ headerShown: false }} />
-      <QueueStack.Screen name="Pairing" component={PairingScreen} options={{ headerShown: true, title: 'Pair Device' }} />
+      <QueueStack.Screen name="Pairing" component={PairingScreen} options={{ headerShown: false }} />
     </QueueStack.Navigator>
   );
 }
@@ -49,8 +50,8 @@ function DoctorSettingsStack(): React.JSX.Element {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
-      <SettingsStack.Screen name="ClinicProfile" component={ClinicProfileScreen} options={{ headerShown: true, title: 'Clinic Profile' }} />
-      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: true, title: 'Pair Device' }} />
+      <SettingsStack.Screen name="ClinicProfile" component={ClinicProfileScreen} options={{ headerShown: false }} />
+      <SettingsStack.Screen name="PairingSettings" component={PairingScreen} options={{ headerShown: false }} />
     </SettingsStack.Navigator>
   );
 }

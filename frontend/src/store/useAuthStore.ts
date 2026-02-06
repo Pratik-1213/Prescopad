@@ -3,8 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import { User, UserRole, AuthState } from '../types/auth.types';
 
 interface AuthStore extends AuthState {
-  setUser: (user: User, accessToken: string, refreshToken: string) => void;
-  logout: () => void;
+  setUser: (user: User, accessToken: string, refreshToken: string) => Promise<void>;
+  logout: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   restoreSession: () => Promise<void>;
 }
@@ -16,10 +16,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  setUser: (user, accessToken, refreshToken) => {
-    SecureStore.setItemAsync('accessToken', accessToken);
-    SecureStore.setItemAsync('refreshToken', refreshToken);
-    SecureStore.setItemAsync('user', JSON.stringify(user));
+  setUser: async (user, accessToken, refreshToken) => {
+    await Promise.all([
+      SecureStore.setItemAsync('accessToken', accessToken),
+      SecureStore.setItemAsync('refreshToken', refreshToken),
+      SecureStore.setItemAsync('user', JSON.stringify(user)),
+    ]);
     set({
       user,
       accessToken,
@@ -29,10 +31,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     });
   },
 
-  logout: () => {
-    SecureStore.deleteItemAsync('accessToken');
-    SecureStore.deleteItemAsync('refreshToken');
-    SecureStore.deleteItemAsync('user');
+  logout: async () => {
+    await Promise.all([
+      SecureStore.deleteItemAsync('accessToken'),
+      SecureStore.deleteItemAsync('refreshToken'),
+      SecureStore.deleteItemAsync('user'),
+    ]);
     set({
       user: null,
       accessToken: null,

@@ -4,12 +4,16 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { sendOTP } from '../../services/authService';
 import { UserRole } from '../../types/auth.types';
+import { AuthStackParamList } from '../../types/navigation.types';
 
-export default function LoginScreen({ navigation, route }: any): React.JSX.Element {
-  const role = route.params?.role as string;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+
+export default function LoginScreen({ navigation, route }: Props): React.JSX.Element {
+  const role = route.params.role;
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,8 +31,9 @@ export default function LoginScreen({ navigation, route }: any): React.JSX.Eleme
     try {
       await sendOTP(phone, role as UserRole);
       navigation.navigate('OTP', { phone, role });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send OTP');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to send OTP';
+      Alert.alert('Error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -80,9 +85,11 @@ export default function LoginScreen({ navigation, route }: any): React.JSX.Eleme
           )}
         </TouchableOpacity>
 
-        <Text style={styles.demoHint}>
-          Demo: Use 9876543210 / OTP: 123456
-        </Text>
+        {__DEV__ && (
+          <Text style={styles.demoHint}>
+            Demo: Use 9876543210 / OTP: 123456
+          </Text>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

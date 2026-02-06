@@ -19,8 +19,8 @@ export async function addToQueue(
   const tokenNumber = (lastToken?.max_token ?? 0) + 1;
 
   await db.runAsync(
-    `INSERT INTO queue (id, patient_id, status, added_by, notes, token_number, added_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    `INSERT INTO queue (id, patient_id, status, added_by, notes, token_number, added_at, synced, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 0, datetime('now'))`,
     [id, patientId, QueueStatus.WAITING, addedBy, notes, tokenNumber]
   );
 
@@ -83,6 +83,9 @@ export async function updateQueueStatus(
   } else if (status === QueueStatus.COMPLETED || status === QueueStatus.CANCELLED) {
     updates.push("completed_at = datetime('now')");
   }
+
+  updates.push('synced = 0');
+  updates.push("updated_at = datetime('now')");
 
   params.push(id);
   await db.runAsync(

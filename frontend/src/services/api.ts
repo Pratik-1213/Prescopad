@@ -2,8 +2,11 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { APP_CONFIG } from '../constants/config';
 
+// Backend URL is resolved dynamically in config.ts (reads from Expo config / env var)
+export const BASE_URL = APP_CONFIG.api.baseUrl;
+
 const api: AxiosInstance = axios.create({
-  baseURL: APP_CONFIG.api.baseUrl,
+  baseURL: BASE_URL,
   timeout: APP_CONFIG.api.timeout,
   headers: {
     'Content-Type': 'application/json',
@@ -36,7 +39,7 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error('No refresh token');
 
         const response = await axios.post(
-          `${APP_CONFIG.api.baseUrl}/auth/refresh-token`,
+          `${BASE_URL}/auth/refresh-token`,
           { refreshToken }
         );
 
@@ -59,10 +62,10 @@ api.interceptors.response.use(
 
 export default api;
 
-// Check if we're online
+// Check if backend server is reachable
 export async function isOnline(): Promise<boolean> {
   try {
-    await axios.get(`${APP_CONFIG.api.baseUrl}/health`, { timeout: 3000 });
+    await axios.get(`${BASE_URL}/health`, { timeout: 3000 });
     return true;
   } catch {
     return false;

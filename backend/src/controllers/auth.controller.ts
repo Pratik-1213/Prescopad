@@ -35,9 +35,18 @@ export async function sendOTP(req: Request, res: Response, next: NextFunction): 
       );
       user = rows[0];
 
-      // Create wallet for doctor
+      // Create wallet and clinic for doctor
       if (role === 'doctor') {
         await createWalletForUser(user.id, 100); // Free starting balance
+
+        // Auto-create clinic for new doctor
+        const clinicRows = await query<{ id: string }>(
+          `INSERT INTO clinics (name, owner_id) VALUES ($1, $2) RETURNING id`,
+          ['My Clinic', user.id]
+        );
+        const clinicId = clinicRows[0].id;
+        await query(`UPDATE users SET clinic_id = $1 WHERE id = $2`, [clinicId, user.id]);
+        user.clinic_id = clinicId;
       }
     }
 
@@ -72,7 +81,7 @@ export async function verifyOTPHandler(req: Request, res: Response, next: NextFu
       throw new AppError('User not found', 404);
     }
 
-    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone };
+    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -117,7 +126,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, user.id]);
     }
 
-    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone };
+    const tokenPayload = { userId: user.id, role: user.role, phone: user.phone, clinicId: user.clinic_id || undefined };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -203,6 +212,7 @@ export async function refreshToken(req: Request, res: Response, next: NextFuncti
       userId: payload.userId,
       role: payload.role,
       phone: payload.phone,
+      clinicId: payload.clinicId,
     });
 
     res.json({

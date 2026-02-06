@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
 import { useQueueStore } from '../../store/useQueueStore';
@@ -19,12 +20,12 @@ import { useClinicStore } from '../../store/useClinicStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useSyncStore } from '../../store/useSyncStore';
+import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import { QueueItem, QueueStatus } from '../../types/queue.types';
 import { ConnectionStatus } from '../../types/sync.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
-interface DoctorDashboardProps {
-  navigation: any;
-}
+type DoctorDashboardProps = NativeStackScreenProps<DoctorStackParamList, 'DoctorDashboard'>;
 
 export default function DoctorDashboard({ navigation }: DoctorDashboardProps): React.JSX.Element {
   const user = useAuthStore((s) => s.user);
@@ -33,6 +34,7 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   const { queueItems, stats, isLoading, loadQueue, loadStats, startConsult } = useQueueStore();
   const { balance, loadCachedBalance } = useWalletStore();
   const connectionStatus = useSyncStore((s) => s.connectionStatus);
+  const cloudSync = useCloudSyncStore((s) => s.sync);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,7 +49,9 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+      // Background cloud sync (non-blocking)
+      cloudSync().catch(() => { /* silent */ });
+    }, [loadData, cloudSync])
   );
 
   const handleRefresh = async () => {
@@ -60,6 +64,10 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
     if (item.status === QueueStatus.COMPLETED) {
       return;
     }
+    if (!item.patient) {
+      Alert.alert('Error', 'Patient data not available for this queue item');
+      return;
+    }
     if (item.status === QueueStatus.IN_PROGRESS) {
       navigation.navigate('Consult', { queueItem: item, patient: item.patient });
       return;
@@ -67,8 +75,9 @@ export default function DoctorDashboard({ navigation }: DoctorDashboardProps): R
     try {
       await startConsult(item.id);
       navigation.navigate('Consult', { queueItem: item, patient: item.patient });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to start consultation');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to start consultation';
+      Alert.alert('Error', msg);
     }
   };
 

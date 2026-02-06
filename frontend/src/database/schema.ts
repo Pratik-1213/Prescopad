@@ -1,4 +1,4 @@
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const CREATE_TABLES_SQL = [
   `CREATE TABLE IF NOT EXISTS doctors (
@@ -149,4 +149,39 @@ export const CREATE_TABLES_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_medicines_usage ON medicines(usage_count DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_lab_tests_name ON lab_tests(name)`,
   `CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced)`,
+];
+
+// V2 migration: add synced + updated_at columns for cloud sync
+export const MIGRATION_V2_SQL = [
+  // Add synced column to tables that need cloud sync
+  `ALTER TABLE patients ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE prescriptions ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE prescriptions ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+  `ALTER TABLE prescription_medicines ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE prescription_medicines ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+  `ALTER TABLE prescription_lab_tests ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE prescription_lab_tests ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+  `ALTER TABLE queue ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE queue ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+  `ALTER TABLE medicines ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE medicines ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+  `ALTER TABLE lab_tests ADD COLUMN synced INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE lab_tests ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`,
+
+  // Cloud sync metadata table
+  `CREATE TABLE IF NOT EXISTS cloud_sync_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_pushed_at TEXT DEFAULT '',
+    last_pulled_at TEXT DEFAULT '',
+    device_id TEXT DEFAULT ''
+  )`,
+
+  // Indexes for synced column
+  `CREATE INDEX IF NOT EXISTS idx_patients_synced ON patients(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_prescriptions_synced ON prescriptions(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_rx_meds_synced ON prescription_medicines(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_rx_tests_synced ON prescription_lab_tests(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_queue_synced ON queue(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_medicines_synced ON medicines(synced)`,
+  `CREATE INDEX IF NOT EXISTS idx_lab_tests_synced ON lab_tests(synced)`,
 ];

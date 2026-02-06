@@ -17,8 +17,8 @@ export async function createPrescription(
 
   await db.runAsync(
     `INSERT INTO prescriptions (id, patient_id, patient_name, patient_age, patient_gender, patient_phone,
-     doctor_id, diagnosis, advice, follow_up_date, status, wallet_deducted, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+     doctor_id, diagnosis, advice, follow_up_date, status, wallet_deducted, created_at, updated_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0)`,
     [
       id,
       draft.patientId,
@@ -32,6 +32,7 @@ export async function createPrescription(
       draft.followUpDate || null,
       PrescriptionStatus.DRAFT,
       now,
+      now,
     ]
   );
 
@@ -39,9 +40,9 @@ export async function createPrescription(
   for (const med of draft.medicines) {
     const medId = generateId();
     await db.runAsync(
-      `INSERT INTO prescription_medicines (id, prescription_id, medicine_name, type, dosage, frequency, duration, timing, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [medId, id, med.medicineName, med.type, med.dosage, med.frequency, med.duration, med.timing, med.notes]
+      `INSERT INTO prescription_medicines (id, prescription_id, medicine_name, type, dosage, frequency, duration, timing, notes, synced, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      [medId, id, med.medicineName, med.type, med.dosage, med.frequency, med.duration, med.timing, med.notes, now]
     );
   }
 
@@ -49,9 +50,9 @@ export async function createPrescription(
   for (const test of draft.labTests) {
     const testId = generateId();
     await db.runAsync(
-      `INSERT INTO prescription_lab_tests (id, prescription_id, test_name, category, notes)
-       VALUES (?, ?, ?, ?, ?)`,
-      [testId, id, test.testName, test.category, test.notes]
+      `INSERT INTO prescription_lab_tests (id, prescription_id, test_name, category, notes, synced, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?)`,
+      [testId, id, test.testName, test.category, test.notes, now]
     );
   }
 
@@ -87,7 +88,7 @@ export async function finalizePrescription(
 ): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
-    `UPDATE prescriptions SET status = ?, signature = ?, pdf_path = ?, pdf_hash = ?, wallet_deducted = 1
+    `UPDATE prescriptions SET status = ?, signature = ?, pdf_path = ?, pdf_hash = ?, wallet_deducted = 1, synced = 0, updated_at = datetime('now')
      WHERE id = ?`,
     [PrescriptionStatus.FINALIZED, signature, pdfPath, pdfHash, id]
   );

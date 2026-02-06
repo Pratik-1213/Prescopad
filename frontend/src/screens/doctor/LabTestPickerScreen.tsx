@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
 import {
@@ -23,15 +24,14 @@ import {
   incrementLabTestUsage,
 } from '../../database/queries/medicineQueries';
 import { LabTest, LAB_TEST_CATEGORIES } from '../../types/medicine.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
 interface SelectedLabTest {
   test: LabTest;
   notes: string;
 }
 
-interface LabTestPickerScreenProps {
-  navigation: any;
-}
+type LabTestPickerScreenProps = NativeStackScreenProps<DoctorStackParamList, 'LabTestPicker'>;
 
 export default function LabTestPickerScreen({ navigation }: LabTestPickerScreenProps): React.JSX.Element {
   const addLabTest = usePrescriptionStore((s) => s.addLabTest);
@@ -181,8 +181,9 @@ export default function LabTestPickerScreen({ navigation }: LabTestPickerScreenP
       });
 
       navigation.goBack();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add custom test');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to add custom test';
+      Alert.alert('Error', msg);
     }
   };
 

@@ -80,8 +80,8 @@ export async function deductWallet(req: AuthRequest, res: Response, next: NextFu
 
 export async function getTransactions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const limit = parseInt(req.query.limit as string) || 50;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
 
     const transactions = await WalletService.getTransactions(req.userId!, limit, offset);
 

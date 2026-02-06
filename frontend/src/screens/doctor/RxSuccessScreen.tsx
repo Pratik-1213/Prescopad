@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
@@ -16,9 +17,12 @@ import { useClinicStore } from '../../store/useClinicStore';
 import { buildShareText } from '../../services/pdfService';
 import { shareViaWhatsApp, shareViaPDF, shareViaSMS } from '../../services/shareService';
 import { Prescription } from '../../types/prescription.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
-export default function RxSuccessScreen({ navigation, route }: any): React.JSX.Element {
-  const prescription = route.params?.prescription as Prescription;
+type Props = NativeStackScreenProps<DoctorStackParamList, 'RxSuccess'>;
+
+export default function RxSuccessScreen({ navigation, route }: Props): React.JSX.Element {
+  const prescription = route.params.prescription;
   const { resetDraft } = usePrescriptionStore();
   const { balance } = useWalletStore();
   const { doctorProfile } = useClinicStore();
@@ -27,8 +31,9 @@ export default function RxSuccessScreen({ navigation, route }: any): React.JSX.E
     try {
       const text = buildShareText(prescription, doctorProfile);
       await shareViaWhatsApp(text, prescription.patientPhone);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not open WhatsApp');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Could not open WhatsApp';
+      Alert.alert('Error', msg);
     }
   };
 
@@ -39,8 +44,9 @@ export default function RxSuccessScreen({ navigation, route }: any): React.JSX.E
         return;
       }
       await shareViaPDF(prescription.pdfPath);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not share PDF');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Could not share PDF';
+      Alert.alert('Error', msg);
     }
   };
 
@@ -48,8 +54,9 @@ export default function RxSuccessScreen({ navigation, route }: any): React.JSX.E
     try {
       const text = buildShareText(prescription, doctorProfile);
       await shareViaSMS(text, prescription.patientPhone);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not open SMS');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Could not open SMS';
+      Alert.alert('Error', msg);
     }
   };
 

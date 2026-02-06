@@ -4,21 +4,25 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { verifyOTP } from '../../services/authService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import { useClinicStore } from '../../store/useClinicStore';
+import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import { UserRole } from '../../types/auth.types';
-import { getDatabase } from '../../database/database';
-import { generateId } from '../../database/database';
+import { getDatabase, generateId } from '../../database/database';
+import { AuthStackParamList } from '../../types/navigation.types';
 
-export default function OTPScreen({ navigation, route }: any): React.JSX.Element {
+type Props = NativeStackScreenProps<AuthStackParamList, 'OTP'>;
+
+export default function OTPScreen({ navigation, route }: Props): React.JSX.Element {
   const { phone, role } = route.params;
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const setUser = useAuthStore((s) => s.setUser);
   const loadCachedBalance = useWalletStore((s) => s.loadCachedBalance);
+  const fullRestore = useCloudSyncStore((s) => s.fullRestore);
   const inputRef = useRef<TextInput>(null);
 
   const handleVerify = async () => {
@@ -55,13 +59,19 @@ export default function OTPScreen({ navigation, route }: any): React.JSX.Element
         );
       }
 
-      // Set auth state
-      setUser(response.user, response.accessToken, response.refreshToken);
+      // Set auth state (must await - stores tokens in SecureStore)
+      await setUser(response.user, response.accessToken, response.refreshToken);
 
       // Load cached data
       await loadCachedBalance();
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'OTP verification failed');
+
+      // Restore data from cloud if user has a clinicId (background, non-blocking)
+      if (response.user.clinicId) {
+        fullRestore().catch(() => { /* silent - will sync later */ });
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'OTP verification failed';
+      Alert.alert('Error', msg);
     } finally {
       setIsLoading(false);
     }

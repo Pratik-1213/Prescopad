@@ -12,25 +12,17 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
 import { usePrescriptionStore } from '../../store/usePrescriptionStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { QueueItem } from '../../types/queue.types';
-import { Patient } from '../../types/patient.types';
 import { PrescriptionMedicine, PrescriptionLabTest } from '../../types/prescription.types';
+import { DoctorStackParamList } from '../../types/navigation.types';
 
 type MedicineDraft = Omit<PrescriptionMedicine, 'id' | 'prescriptionId'>;
 type LabTestDraft = Omit<PrescriptionLabTest, 'id' | 'prescriptionId'>;
 
-interface ConsultScreenProps {
-  navigation: any;
-  route: {
-    params: {
-      queueItem: QueueItem;
-      patient: Patient;
-    };
-  };
-}
+type ConsultScreenProps = NativeStackScreenProps<DoctorStackParamList, 'Consult'>;
 
 export default function ConsultScreen({ navigation, route }: ConsultScreenProps): React.JSX.Element {
   const { queueItem, patient } = route.params;
@@ -151,8 +143,9 @@ export default function ConsultScreen({ navigation, route }: ConsultScreenProps)
     try {
       const prescription = await createPrescription(user.id);
       navigation.navigate('PrescriptionPreview', { prescriptionId: prescription.id });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create prescription');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to create prescription';
+      Alert.alert('Error', message);
     } finally {
       setIsCreating(false);
     }

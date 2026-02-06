@@ -1,13 +1,15 @@
 import api, { isOnline } from './api';
-import { APP_CONFIG } from '../constants/config';
 import { UserRole, AuthResponse } from '../types/auth.types';
+
+// Offline demo OTP (only used when backend is unreachable)
+const OFFLINE_DEMO_OTP = '123456';
 
 export async function sendOTP(phone: string, role: UserRole): Promise<{ success: boolean; otp?: string }> {
   const online = await isOnline();
 
   if (!online) {
     // Offline demo mode
-    return { success: true, otp: APP_CONFIG.otp.demoOtp };
+    return { success: true, otp: OFFLINE_DEMO_OTP };
   }
 
   const response = await api.post('/auth/send-otp', { phone, role });
@@ -23,7 +25,7 @@ export async function verifyOTP(
 
   if (!online) {
     // Offline demo mode - return mock auth response
-    if (otp === APP_CONFIG.otp.demoOtp) {
+    if (otp === OFFLINE_DEMO_OTP) {
       return {
         user: {
           id: `offline-${role}-${Date.now()}`,

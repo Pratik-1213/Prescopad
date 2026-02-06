@@ -13,6 +13,10 @@ export async function rechargeWallet(amount: number): Promise<{
   balance: number;
   transactionId: string;
 }> {
+  const online = await isOnline();
+  if (!online) {
+    throw new Error('Cannot recharge while offline. Please check your internet connection and ensure the server is running.');
+  }
   const response = await api.post('/wallet/recharge', { amount });
   return response.data;
 }
@@ -22,6 +26,10 @@ export async function deductWallet(
   description: string,
   referenceId: string
 ): Promise<{ balance: number; transactionId: string }> {
+  const online = await isOnline();
+  if (!online) {
+    throw new Error('Cannot process payment while offline. Please check your connection.');
+  }
   const response = await api.post('/wallet/deduct', {
     amount,
     description,
@@ -48,6 +56,10 @@ export async function updateAutoRefill(
   autoRefillAmount?: number,
   autoRefillThreshold?: number
 ): Promise<void> {
+  const online = await isOnline();
+  if (!online) {
+    throw new Error('Cannot update settings while offline. Please check your connection.');
+  }
   await api.put('/wallet/auto-refill', {
     autoRefill,
     autoRefillAmount,

@@ -19,6 +19,7 @@ import { useQueueStore } from '../../store/useQueueStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSyncStore } from '../../store/useSyncStore';
 import { usePatientStore } from '../../store/usePatientStore';
+import { useCloudSyncStore } from '../../store/useCloudSyncStore';
 import { QueueItem, QueueStatus } from '../../types/queue.types';
 import { ConnectionStatus } from '../../types/sync.types';
 import type { AssistantStackParamList } from '../../types/navigation.types';
@@ -61,6 +62,7 @@ export default function AssistantDashboard(): React.JSX.Element {
     useQueueStore();
   const user = useAuthStore((s) => s.user);
   const connectionStatus = useSyncStore((s) => s.connectionStatus);
+  const cloudSync = useCloudSyncStore((s) => s.sync);
   const { searchPatients, searchResults, clearSearch } = usePatientStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +72,9 @@ export default function AssistantDashboard(): React.JSX.Element {
     useCallback(() => {
       loadQueue();
       loadStats();
-    }, [loadQueue, loadStats]),
+      // Background cloud sync (non-blocking)
+      cloudSync().catch(() => { /* silent */ });
+    }, [loadQueue, loadStats, cloudSync]),
   );
 
   const onRefresh = useCallback(async () => {

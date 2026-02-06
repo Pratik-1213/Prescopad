@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { CREATE_TABLES_SQL, DB_VERSION } from './schema';
+import { CREATE_TABLES_SQL, DB_VERSION, MIGRATION_V2_SQL } from './schema';
 import { seedMedicines, seedLabTests } from './seed';
 
 const DB_NAME = 'prescopad.db';
@@ -21,18 +21,38 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
   );
   const currentVersion = versionResult?.user_version ?? 0;
 
-  if (currentVersion < DB_VERSION) {
+  if (currentVersion < 1) {
+    // Fresh install - create all tables
     for (const sql of CREATE_TABLES_SQL) {
       await database.execAsync(sql);
     }
     await seedMedicines(database);
     await seedLabTests(database);
-    await database.execAsync(`PRAGMA user_version = ${DB_VERSION}`);
 
     // Initialize wallet cache with zero balance
     await database.runAsync(
       `INSERT OR IGNORE INTO local_wallet_cache (id, balance) VALUES (1, 0)`
     );
+  }
+
+  if (currentVersion < 2) {
+    // V2 migration: add synced columns for cloud sync
+    for (const sql of MIGRATION_V2_SQL) {
+      try {
+        await database.execAsync(sql);
+      } catch {
+        // Column may already exist on fresh install - ignore
+      }
+    }
+
+    // Initialize cloud sync meta
+    await database.runAsync(
+      `INSERT OR IGNORE INTO cloud_sync_meta (id, last_pushed_at, last_pulled_at, device_id) VALUES (1, '', '', '')`,
+    );
+  }
+
+  if (currentVersion < DB_VERSION) {
+    await database.execAsync(`PRAGMA user_version = ${DB_VERSION}`);
   }
 }
 

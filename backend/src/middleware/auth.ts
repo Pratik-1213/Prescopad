@@ -5,6 +5,7 @@ export interface AuthRequest extends Request {
   userId?: string;
   userRole?: string;
   userPhone?: string;
+  clinicId?: string;
 }
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction): void {
@@ -22,6 +23,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     req.userId = payload.userId;
     req.userRole = payload.role;
     req.userPhone = payload.phone;
+    req.clinicId = payload.clinicId;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });

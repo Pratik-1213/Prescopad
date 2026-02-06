@@ -1,20 +1,23 @@
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { ENV } from '../config/env';
 
 interface TokenPayload {
   userId: string;
   role: string;
   phone: string;
+  clinicId?: string;
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
-  const options: SignOptions = { expiresIn: ENV.jwt.expiresIn as any };
-  return jwt.sign(payload, ENV.jwt.secret, options);
+  return jwt.sign(payload, ENV.jwt.secret, {
+    expiresIn: ENV.jwt.expiresIn as jwt.SignOptions['expiresIn'],
+  });
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
-  const options: SignOptions = { expiresIn: ENV.jwt.refreshExpiresIn as any };
-  return jwt.sign(payload, ENV.jwt.refreshSecret, options);
+  return jwt.sign(payload, ENV.jwt.refreshSecret, {
+    expiresIn: ENV.jwt.refreshExpiresIn as jwt.SignOptions['expiresIn'],
+  });
 }
 
 export function verifyAccessToken(token: string): TokenPayload {
