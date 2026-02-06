@@ -14,6 +14,7 @@ import PatientDetailScreen from '../screens/assistant/PatientDetailScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import ConnectionScreen from '../screens/shared/ConnectionScreen';
 import PrescriptionViewScreen from '../screens/shared/PrescriptionViewScreen';
+import ClinicProfileScreen from '../screens/shared/ClinicProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const QueueStack = createNativeStackNavigator();
@@ -44,6 +45,7 @@ function AssistantSettingsStack(): React.JSX.Element {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+      <SettingsStack.Screen name="ClinicProfile" component={ClinicProfileScreen} options={{ headerShown: false }} />
       <SettingsStack.Screen name="ConnectionSettings" component={ConnectionScreen} options={{ headerShown: false }} />
     </SettingsStack.Navigator>
   );
